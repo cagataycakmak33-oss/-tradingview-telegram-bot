@@ -7,6 +7,7 @@ def telegram_gonder(mesaj):
         "chat_id": CHAT_ID,
         "text": mesaj
     }
-    requests.post(url, data=data)
+    r = requests.post(url, data=data)
+print(r.text)
 
 telegram_gonder("🚀 Trading bot bağlantı testi başarılı!")
