@@ -1,4 +1,3 @@
-
 print("BOT TESTI BASLADI")
 print("CHAT_ID:", CHAT_ID)
 
