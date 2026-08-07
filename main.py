@@ -8,6 +8,6 @@ def telegram_gonder(mesaj):
         "text": mesaj
     }
     r = requests.post(url, data=data)
-print(r.text)
+    print(r.text)
 
 telegram_gonder("🚀 Trading bot bağlantı testi başarılı!")
