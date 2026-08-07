@@ -1,1 +1,1 @@
-
+print("Trading bot basladi")
