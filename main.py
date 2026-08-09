@@ -1,55 +1,113 @@
 import os
+import requests
 import borsapy as bp
+import pandas as pd
+from io import BytesIO
+from pypdf import PdfReader
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+PDF_URL = "https://www.borsaistanbul.com/files/duyuru-48375-TR.pdf"
 
 print("====================================")
-print("BIST TARAMA SISTEMI BASLADI")
+print("BIST 100 + ANA PAZAR TESTI")
 print("====================================")
 
+
+# -------------------------------------------------
 # BIST 100
+# -------------------------------------------------
+
 xu100 = bp.Index("XU100")
-bist100 = set(xu100.component_symbols)
 
-print("BIST 100:", len(bist100), "hisse")
+bist100 = set(
+    symbol.upper()
+    for symbol in xu100.component_symbols
+)
 
-# Şimdilik Ana Pazar listesi ayrı dosyadan okunacak.
-# Dosya bir sonraki adımda oluşturulacak.
-ANA_PAZAR_DOSYASI = "ana_pazar.txt"
+print("BIST 100:", len(bist100))
 
+
+# -------------------------------------------------
+# RESMI BORSA ISTANBUL PDF
+# -------------------------------------------------
+
+print("Borsa Istanbul resmi liste indiriliyor...")
+
+response = requests.get(
+    PDF_URL,
+    timeout=30
+)
+
+response.raise_for_status()
+
+reader = PdfReader(
+    BytesIO(response.content)
+)
+
+# Ana Pazar listesini PDF'den çıkar
 ana_pazar = set()
 
-if os.path.exists(ANA_PAZAR_DOSYASI):
+for page in reader.pages:
 
-    with open(
-        ANA_PAZAR_DOSYASI,
-        "r",
-        encoding="utf-8"
-    ) as f:
+    text = page.extract_text() or ""
 
-        for satir in f:
+    # PDF'nin Ana Pazar bölümündeki sembolleri
+    # daha sonra güvenli şekilde ayrıştıracağız.
+    lines = text.splitlines()
 
-            sembol = satir.strip().upper()
+    for line in lines:
 
-            if sembol:
-                ana_pazar.add(sembol)
+        line = line.strip()
 
-print("Ana Pazar:", len(ana_pazar), "hisse")
+        if not line:
+            continue
 
-# BIST 100 + Ana Pazar
+        # Sadece BIST sembol formatına benzeyen
+        # kelimeleri al
+        kelimeler = line.split()
+
+        for kelime in kelimeler:
+
+            kelime = kelime.upper().strip()
+
+            if (
+                3 <= len(kelime) <= 6
+                and kelime.isalnum()
+            ):
+                ana_pazar.add(kelime)
+
+
+print(
+    "PDF'den bulunan sembol sayisi:",
+    len(ana_pazar)
+)
+
+
+# -------------------------------------------------
+# ONEMLI:
+# BIST 100 + ANA PAZAR
+# -------------------------------------------------
+
 tarama_listesi = sorted(
     bist100 | ana_pazar
 )
 
+
 print(
-    "TOPLAM TARAMA:",
-    len(tarama_listesi),
-    "hisse"
+    "Toplam aday sembol:",
+    len(tarama_listesi)
 )
 
 print("")
-print("Ilk hisseler:")
+print("Ilk 30 sembol:")
 
-for symbol in tarama_listesi[:20]:
+for symbol in tarama_listesi[:30]:
     print(symbol)
 
+
 print("")
-print("LISTE TESTI BASARILI")
+print("====================================")
+print("TEST TAMAMLANDI")
+print("====================================")
