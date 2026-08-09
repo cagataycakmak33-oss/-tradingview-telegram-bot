@@ -1,31 +1,20 @@
-name: Trading Bot Calistir
+env:
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-on:
-  schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch:
+steps:
+  - name: Kodu indir
+    uses: actions/checkout@v4
 
-jobs:
-  bot:
-    runs-on: ubuntu-latest
+  - name: Python kur
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-    env:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  - name: Paketleri yukle
+    run: |
+      pip install -r requirements.txt
 
-    steps:
-      - name: Kodu indir
-        uses: actions/checkout@v4
-
-      - name: Python kur
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Paketleri yukle
-        run: |
-          pip install -r requirements.txt
-
-      - name: Botu calistir
-        run: |
-          python main.py
+  - name: Botu calistir
+    run: |
+      python main.py
