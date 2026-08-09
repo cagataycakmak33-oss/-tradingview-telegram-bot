@@ -1,42 +1,16 @@
-import os
-import requests
-from datetime import datetime
-from zoneinfo import ZoneInfo
+import borsapy as bp
 
-print("YENI MAIN.PY CALISIYOR")
+print("BIST VERI TESTI BASLADI")
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+try:
+    stocks = bp.stocks()
 
+    print("Hisse sayisi:", len(stocks))
+    print(stocks.head())
 
-def send_telegram(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    print("BIST VERI TESTI BASARILI")
 
-    data = {
-        "chat_id": CHAT_ID,
-        "text": message
-    }
-
-    response = requests.post(url, data=data)
-
-    print("TELEGRAM CEVABI:")
-    print(response.status_code)
-    print(response.text)
-
-
-def main():
-    now = datetime.now(ZoneInfo("Europe/Istanbul"))
-
-    print("TRADING BOT BASLADI")
-    print("SAAT:", now.strftime("%H:%M"))
-
-    send_telegram(
-        "🚀 YENİ MAIN.PY ÇALIŞIYOR!\n\n"
-        f"🕒 Saat: {now.strftime('%H:%M')}\n"
-        "📌 Telegram bağlantısı başarılı.\n"
-        "📊 Gerçek hisse taraması için hazır."
-    )
-
-
-if __name__ == "__main__":
-    main()
+except Exception as e:
+    print("HATA:")
+    print(type(e)._name_)
+    print(str(e))
