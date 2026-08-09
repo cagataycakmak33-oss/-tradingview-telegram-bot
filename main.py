@@ -1,5 +1,8 @@
+import os
 import requests
-from config import TELEGRAM_TOKEN, CHAT_ID
+
+TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 print("BOT TESTI BASLADI")
 print("CHAT_ID:", CHAT_ID)
