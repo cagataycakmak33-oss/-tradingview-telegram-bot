@@ -1,3 +1,6 @@
+import requests
+from config import TELEGRAM_TOKEN, CHAT_ID
+
 print("BOT TESTI BASLADI")
 print("CHAT_ID:", CHAT_ID)
 
