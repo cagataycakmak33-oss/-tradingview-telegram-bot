@@ -1,4 +1,4 @@
-[00:19, 10.08.2026] Çağatay: import os
+import os
 import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
