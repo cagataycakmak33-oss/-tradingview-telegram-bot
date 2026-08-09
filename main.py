@@ -3,14 +3,17 @@ import borsapy as bp
 print("BIST VERI TESTI BASLADI")
 
 try:
-    stocks = bp.stocks()
+    hisse = bp.Ticker("THYAO")
 
-    print("Hisse sayisi:", len(stocks))
-    print(stocks.head())
+    print("THYAO bilgisi alindi")
+
+    veri = hisse.history(period="1mo")
+
+    print("Veri satir sayisi:", len(veri))
+    print(veri.tail())
 
     print("BIST VERI TESTI BASARILI")
 
 except Exception as e:
-    print("HATA:")
-    print(type(e)._name_)
-    print(str(e))
+    print("HATA TIPI:", type(e)._name_)
+    print("HATA:", str(e))
