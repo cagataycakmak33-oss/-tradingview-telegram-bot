@@ -38,5 +38,5 @@ def main():
     )
 
 
-if _name_ == "_main__":
+if __name__ == "__main__":
     main()
