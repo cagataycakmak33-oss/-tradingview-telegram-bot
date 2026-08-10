@@ -221,6 +221,7 @@ def rsi_hesapla(close):
 
 # =========================================================
 # PİVOT
+# K1 / K2 / K3 için kullanılmaya devam ediyor
 # =========================================================
 
 def pivot_hesapla(high, low, close):
@@ -312,11 +313,7 @@ def analiz_et(symbol):
 
         # =================================================
         # ICHIMOKU BASE LINE
-        #
-        # Ichimoku: 9 / 26 / 52 / 26
-        #
-        # Base Line:
-        # (26 periyot en yüksek + 26 periyot en düşük) / 2
+        # 9 / 26 / 52 / 26
         # =================================================
 
         base_yuksek = (
@@ -378,6 +375,8 @@ def analiz_et(symbol):
 
         # =================================================
         # HACİM
+        # Şimdilik sadece gösteriliyor.
+        # FİLTRE DEĞİL.
         # =================================================
 
         hacim = float(
@@ -387,6 +386,7 @@ def analiz_et(symbol):
 
         # =================================================
         # PİVOT
+        # K1 / K2 / K3 için
         # =================================================
 
         pivot = pivot_hesapla(
@@ -406,8 +406,6 @@ def analiz_et(symbol):
         #
         # Bugün:
         # Base Line < Fiyat
-        #
-        # Yani Base Line fiyatı aşağı kesmiş olur.
         # =================================================
 
         ichimoku_sinyal = (
@@ -443,13 +441,13 @@ def analiz_et(symbol):
         # =================================================
         # KRİTER 3
         #
-        # RSI 14 > 50
+        # RSI 14 >= 50
         # =================================================
 
         rsi_sinyal = (
 
             son["RSI14"]
-            >
+            >=
             50
         )
 
@@ -491,10 +489,12 @@ def analiz_et(symbol):
 
                 "volume": hacim,
 
+                # STOP = EMA14
                 "stop": float(
-                    pivot["stop"]
+                    son["EMA14"]
                 ),
 
+                # K1 / K2 / K3 = Pivot R1 / R2 / R3
                 "k1": float(
                     pivot["k1"]
                 ),
@@ -727,12 +727,6 @@ def main():
             f"K2: {sonuc['k2']:.2f} TL\n"
 
             f"K3: {sonuc['k3']:.2f} TL\n\n"
-
-            "📌 Ichimoku Base Line fiyatı aşağı kesti.\n"
-
-            "📌 EMA14 fiyat farkı ≥ %3.\n"
-
-            "📌 RSI14 > 50.\n\n"
 
             "📌 Taramaya yeni girdi."
         )
