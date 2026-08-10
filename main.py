@@ -16,11 +16,73 @@ GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
 EMA_PERIOD = 14
 RSI_PERIOD = 14
 
-# Ichimoku
+# Ichimoku (9,26,52,26)
 TENKAN_PERIOD = 9
 BASE_PERIOD = 26
 SENKOU_B_PERIOD = 52
 DISPLACEMENT = 26
+
+
+# =========================================================
+# ANA PAZAR
+# 01.07.2026 itibarıyla Borsa İstanbul resmi listesi
+# =========================================================
+
+ANA_PAZAR = {
+    "A1YEN", "CATES", "FRIGO", "LKMNH", "PRKAB",
+    "ACSEL", "CELHA", "FRMPL", "LUKSK", "PRKME",
+    "ADEL", "CEMAS", "GARFA", "LXGYO", "PRZMA",
+    "ADESE", "CEMTS", "GEDZA", "LYDYE", "PSDTC",
+    "AFYON", "CEOEM", "GENKM", "MAALT", "RAYSG",
+    "AHSGY", "CMBTN", "GEREL", "MACKO", "RTALB",
+    "AKENR", "CONSE", "GLRYH", "MAKIM", "RUBNS",
+    "AKHAN", "CRFSA", "GOODY", "MAKTK", "RUZYE",
+    "AKMGY", "CUSAN", "GSDDE", "MANAS", "SANFM",
+    "AKSUE", "DAGI", "GSDHO", "MARBL", "SANKO",
+    "ALCAR", "DARDL", "GUNDG", "MARKA", "SAYAS",
+    "ALCTL", "DCTTR", "GZNMI", "MARMR", "SEGMN",
+    "ALKA", "DENGE", "HATEK", "MARTI", "SEGYO",
+    "ALKIM", "DERHL", "HDFGS", "MCARD", "SELVA",
+    "ALKLC", "DERIM", "HEDEF", "MEDTR", "SERNT",
+    "ALVES", "DESA", "HKTM", "MEKAG", "SKTAS",
+    "ANELE", "DESPC", "HOROZ", "MERCN", "SKYMD",
+    "ANGEN", "DGATE", "HUNER", "MERKO", "SMART",
+    "ARENA", "DGNMO", "HURGZ", "METRO", "SMRVA",
+    "ARFYE", "DITAS", "ICBCT", "MEYSU", "SNICA",
+    "ARSAN", "DMRGD", "ICUGS", "MHRGY", "SOKE",
+    "ARTMS", "DMSAS", "IHAAS", "MNDRS", "SVGYO",
+    "ARZUM", "DNISI", "IHGZT", "MNDTR", "TATGD",
+    "AVGYO", "DOCO", "IHLGM", "MRGYO", "TBORG",
+    "AVHOL", "DOFER", "IMASM", "MRSHL", "TEHOL",
+    "AVOD", "DOKTA", "INFO", "MSGYO", "TEKTU",
+    "AYCES", "DUNYH", "INGRM", "MTRKS", "TERA",
+    "AYEN", "DURDO", "INTEM", "NETAS", "TGSAS",
+    "AZTEK", "DURKN", "ISGSY", "NIBAS", "TKNSA",
+    "BAGFS", "DYOBY", "ISSEN", "NUGYO", "TLMAN",
+    "BAHKM", "DZGYO", "ISYAT", "OBASE", "TMPOL",
+    "BAKAB", "EDATA", "IZFAS", "OFSYM", "TSGYO",
+    "BANVT", "EDIP", "IZINV", "ONCSM", "TUCLK",
+    "BAYRK", "EGEGY", "IZMDC", "ONRYT", "TURGG",
+    "BEGYO", "EGEPO", "JANTS", "OSMEN", "UFUK",
+    "BESTE", "EGSER", "KAPLM", "OSTIM", "ULUFA",
+    "BEYAZ", "EKOS", "KARTN", "OTTO", "ULUSE",
+    "BIGCH", "EKSUN", "KFEIN", "OZGYO", "ULUUN",
+    "BIGTK", "ELITE", "KGYO", "OZSUB", "UNLU",
+    "BIZIM", "EMKEL", "KIMMR", "OZYSR", "VBTYZ",
+    "BLCYT", "EMPAE", "KLMSN", "PAMEL", "VERTU",
+    "BLUME", "ENSRI", "KLSYN", "PCILT", "VERUS",
+    "BMSCH", "EPLAS", "KNFRT", "PEKGY", "VKING",
+    "BMSTL", "ERBOS", "KONKA", "PENGD", "VRGYO",
+    "BNTAS", "ERCB", "KRGYO", "PENTA", "VSNMD",
+    "BORSK", "ESCOM", "KRONT", "PETUN", "YAPRK",
+    "BOSSA", "ETILR", "KRPLS", "PINSU", "YAYLA",
+    "BRKVY", "EYGYO", "KRSTL", "PKART", "YESIL",
+    "BRLSM", "FADE", "KRVGD", "PKENT", "YIGIT",
+    "BULGS", "FMIZP", "KTSKR", "PLTUR", "YKSLN",
+    "BURCE", "FONET", "KUTPO", "PNLSN", "YUNSA",
+    "BVSAN", "FORMT", "KZGYO", "PNSUT", "ZEDUR",
+    "FORTE", "LIDFA", "PRDGS", "ZGYO"
+}
 
 
 # =========================================================
@@ -89,7 +151,6 @@ def piyasa_acik_mi():
         ZoneInfo("Europe/Istanbul")
     )
 
-    # Cumartesi / Pazar
     if now.weekday() >= 5:
         return False
 
@@ -159,7 +220,7 @@ def rsi_hesapla(close):
 
 
 # =========================================================
-# PİVOT HESAPLAMA
+# PİVOT
 # =========================================================
 
 def pivot_hesapla(high, low, close):
@@ -211,9 +272,7 @@ def analiz_et(symbol):
             symbol
         )
 
-        ticker = bp.Ticker(
-            symbol
-        )
+        ticker = bp.Ticker(symbol)
 
         df = ticker.history(
             period="6mo"
@@ -252,12 +311,12 @@ def analiz_et(symbol):
 
 
         # =================================================
-        # ICHIMOKU
+        # ICHIMOKU BASE LINE
         #
-        # (9,26,52,26)
+        # Ichimoku: 9 / 26 / 52 / 26
         #
         # Base Line:
-        # (26 periyotluk en yüksek + en düşük) / 2
+        # (26 periyot en yüksek + 26 periyot en düşük) / 2
         # =================================================
 
         base_yuksek = (
@@ -292,7 +351,7 @@ def analiz_et(symbol):
 
 
         # =================================================
-        # 1 HAFTALIK DEĞİŞİM
+        # 1 HAFTA
         # =================================================
 
         hafta_once = df.iloc[-6]
@@ -340,31 +399,27 @@ def analiz_et(symbol):
         # =================================================
         # KRİTER 1
         #
-        # ICHIMOKU BASE LINE
-        #
-        # İstenen:
-        #
-        # Base Line fiyatı aşağı doğru kesecek.
+        # ICHIMOKU BASE LINE AŞAĞI KESER FİYATI
         #
         # Önceki gün:
-        # Base Line <= Fiyat
+        # Base Line >= Fiyat
         #
         # Bugün:
-        # Base Line > Fiyat
+        # Base Line < Fiyat
         #
-        # Yani Base Line fiyatı aşağı kesmiş olacak.
+        # Yani Base Line fiyatı aşağı kesmiş olur.
         # =================================================
 
         ichimoku_sinyal = (
 
             onceki["BASE"]
-            <=
+            >=
             onceki["Close"]
 
             and
 
             son["BASE"]
-            >
+            <
             son["Close"]
         )
 
@@ -374,7 +429,7 @@ def analiz_et(symbol):
         #
         # EMA 14
         #
-        # Fiyat EMA14'ün en az %3 üzerinde olacak.
+        # Fiyat EMA14'ten %3 veya daha fazla yukarıda.
         # =================================================
 
         ema_sinyal = (
@@ -400,7 +455,7 @@ def analiz_et(symbol):
 
 
         # =================================================
-        # TÜM TARAMA ŞARTLARI
+        # TÜM ŞARTLAR
         # =================================================
 
         if (
@@ -476,24 +531,13 @@ def analiz_et(symbol):
 def main():
 
     print("")
-
-    print(
-        "===================================="
-    )
-
-    print(
-        "TRADING BOT BASLADI"
-    )
-
-    print(
-        "===================================="
-    )
-
+    print("====================================")
+    print("TRADING BOT BASLADI")
+    print("====================================")
 
     now = datetime.now(
         ZoneInfo("Europe/Istanbul")
     )
-
 
     print(
         "Saat:",
@@ -531,31 +575,38 @@ def main():
     bist100 = bist100_listesi()
 
 
+    # =====================================================
+    # BIST 100 + ANA PAZAR
+    # =====================================================
+
+    tarama_listesi = sorted(
+        bist100 | ANA_PAZAR
+    )
+
+
     print(
         "BIST 100 hisse sayisi:",
         len(bist100)
     )
 
-
-    tarama_listesi = sorted(
-        bist100
+    print(
+        "Ana Pazar hisse sayisi:",
+        len(ANA_PAZAR)
     )
 
-
     print(
-        "Toplam taranacak hisse:",
+        "Toplam benzersiz taranacak hisse:",
         len(tarama_listesi)
     )
 
 
     # =====================================================
-    # DAHA ÖNCE GÖNDERİLENLER
+    # GÖNDERİLENLER
     # =====================================================
 
     gonderilenler = (
         gonderilenleri_oku()
     )
-
 
     bulunan = []
 
@@ -597,18 +648,9 @@ def main():
     # =====================================================
 
     print("")
-
-    print(
-        "===================================="
-    )
-
-    print(
-        "TARAMA TAMAMLANDI"
-    )
-
-    print(
-        "===================================="
-    )
+    print("====================================")
+    print("TARAMA TAMAMLANDI")
+    print("====================================")
 
     print(
         "Yeni bulunan hisse:",
@@ -621,6 +663,21 @@ def main():
     # =====================================================
 
     for sonuc in bulunan:
+
+        symbol = sonuc["symbol"]
+
+        if symbol in bist100:
+
+            pazar_adi = "BIST 100"
+
+        elif symbol in ANA_PAZAR:
+
+            pazar_adi = "Ana Pazar"
+
+        else:
+
+            pazar_adi = "Bilinmiyor"
+
 
         gunluk_isaret = (
 
@@ -642,7 +699,7 @@ def main():
 
             "🚨 YENİ HİSSE\n\n"
 
-            f"📈 {sonuc['symbol']}\n"
+            f"📈 {symbol}\n"
 
             f"🕒 {now.strftime('%H:%M')}\n"
 
@@ -655,7 +712,7 @@ def main():
             f"{hafta_isaret} 1 Hafta: "
             f"{sonuc['weekly_change']:+.2f}%\n\n"
 
-            "🏷️ Pazar: BIST 100\n\n"
+            f"🏷️ Pazar: {pazar_adi}\n\n"
 
             f"📊 Hacim: "
             f"{sonuc['volume']:,.0f}\n\n"
@@ -672,6 +729,10 @@ def main():
             f"K3: {sonuc['k3']:.2f} TL\n\n"
 
             "📌 Ichimoku Base Line fiyatı aşağı kesti.\n"
+
+            "📌 EMA14 fiyat farkı ≥ %3.\n"
+
+            "📌 RSI14 > 50.\n\n"
 
             "📌 Taramaya yeni girdi."
         )
