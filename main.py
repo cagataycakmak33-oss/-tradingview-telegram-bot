@@ -16,16 +16,12 @@ GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
 EMA_PERIOD = 14
 RSI_PERIOD = 14
 
-# Ichimoku (9,26,52,26)
-TENKAN_PERIOD = 9
+# Ichimoku
 BASE_PERIOD = 26
-SENKOU_B_PERIOD = 52
-DISPLACEMENT = 26
 
 
 # =========================================================
 # ANA PAZAR
-# 01.07.2026 itibarıyla Borsa İstanbul resmi listesi
 # =========================================================
 
 ANA_PAZAR = {
@@ -46,7 +42,7 @@ ANA_PAZAR = {
     "ALKLC", "DERIM", "HEDEF", "MEDTR", "SERNT",
     "ALVES", "DESA", "HKTM", "MEKAG", "SKTAS",
     "ANELE", "DESPC", "HOROZ", "MERCN", "SKYMD",
-    "ANGEN", "DGATE", "HUNER", "MERKO", "SMART",
+    "ANGEN", "DGATE", "HUNER", "MERCN", "SMART",
     "ARENA", "DGNMO", "HURGZ", "METRO", "SMRVA",
     "ARFYE", "DITAS", "ICBCT", "MEYSU", "SNICA",
     "ARSAN", "DMRGD", "ICUGS", "MHRGY", "SOKE",
@@ -73,15 +69,15 @@ ANA_PAZAR = {
     "BLUME", "ENSRI", "KLSYN", "PCILT", "VERUS",
     "BMSCH", "EPLAS", "KNFRT", "PEKGY", "VKING",
     "BMSTL", "ERBOS", "KONKA", "PENGD", "VRGYO",
-    "BNTAS", "ERCB", "KRGYO", "PENTA", "VSNMD",
-    "BORSK", "ESCOM", "KRONT", "PETUN", "YAPRK",
-    "BOSSA", "ETILR", "KRPLS", "PINSU", "YAYLA",
-    "BRKVY", "EYGYO", "KRSTL", "PKART", "YESIL",
-    "BRLSM", "FADE", "KRVGD", "PKENT", "YIGIT",
-    "BULGS", "FMIZP", "KTSKR", "PLTUR", "YKSLN",
-    "BURCE", "FONET", "KUTPO", "PNLSN", "YUNSA",
-    "BVSAN", "FORMT", "KZGYO", "PNSUT", "ZEDUR",
-    "FORTE", "LIDFA", "PRDGS", "ZGYO"
+    "BNTAS", "ERCB", "KRONT", "PETUN", "YAPRK",
+    "BORSK", "ESCOM", "KRPLS", "PINSU", "YAYLA",
+    "BOSSA", "ETILR", "KRSTL", "PKART", "YESIL",
+    "BRKVY", "EYGYO", "KRVGD", "PKENT", "YIGIT",
+    "BRLSM", "FADE", "KTSKR", "PLTUR", "YKSLN",
+    "BULGS", "FMIZP", "KUTPO", "PNLSN", "YUNSA",
+    "BURCE", "FONET", "KZGYO", "PNSUT", "ZEDUR",
+    "BVSAN", "FORMT", "PRDGS", "ZGYO",
+    "FORTE", "LIDFA"
 }
 
 
@@ -221,7 +217,6 @@ def rsi_hesapla(close):
 
 # =========================================================
 # PİVOT
-# K1 / K2 / K3 için kullanılmaya devam ediyor
 # =========================================================
 
 def pivot_hesapla(high, low, close):
@@ -287,7 +282,6 @@ def analiz_et(symbol):
 
         df = df.copy()
 
-
         # =================================================
         # EMA 14
         # =================================================
@@ -301,7 +295,6 @@ def analiz_et(symbol):
             .mean()
         )
 
-
         # =================================================
         # RSI 14
         # =================================================
@@ -310,10 +303,8 @@ def analiz_et(symbol):
             df["Close"]
         )
 
-
         # =================================================
-        # ICHIMOKU BASE LINE
-        # 9 / 26 / 52 / 26
+        # ICHIMOKU BASE
         # =================================================
 
         base_yuksek = (
@@ -337,15 +328,12 @@ def analiz_et(symbol):
             + base_dusuk
         ) / 2
 
-
         # =================================================
         # SON 2 GÜN
         # =================================================
 
         onceki = df.iloc[-2]
-
         son = df.iloc[-1]
-
 
         # =================================================
         # 1 HAFTA
@@ -360,9 +348,8 @@ def analiz_et(symbol):
             ) - 1
         ) * 100
 
-
         # =================================================
-        # GÜNLÜK DEĞİŞİM
+        # GÜNLÜK
         # =================================================
 
         gunluk_degisim = (
@@ -372,21 +359,16 @@ def analiz_et(symbol):
             ) - 1
         ) * 100
 
-
         # =================================================
         # HACİM
-        # Şimdilik sadece gösteriliyor.
-        # FİLTRE DEĞİL.
         # =================================================
 
         hacim = float(
             son["Volume"]
         )
 
-
         # =================================================
-        # PİVOT
-        # K1 / K2 / K3 için
+        # STOP / KÂR AL
         # =================================================
 
         pivot = pivot_hesapla(
@@ -395,17 +377,8 @@ def analiz_et(symbol):
             float(onceki["Close"])
         )
 
-
         # =================================================
-        # KRİTER 1
-        #
-        # ICHIMOKU BASE LINE AŞAĞI KESER FİYATI
-        #
-        # Önceki gün:
-        # Base Line >= Fiyat
-        #
-        # Bugün:
-        # Base Line < Fiyat
+        # ICHIMOKU SİNYALİ
         # =================================================
 
         ichimoku_sinyal = (
@@ -421,13 +394,9 @@ def analiz_et(symbol):
             son["Close"]
         )
 
-
         # =================================================
-        # KRİTER 2
-        #
-        # EMA 14
-        #
-        # Fiyat EMA14'ten %3 veya daha fazla yukarıda.
+        # EMA SİNYALİ
+        # Fiyat EMA14'ten %3 veya daha fazla yukarıda
         # =================================================
 
         ema_sinyal = (
@@ -437,33 +406,27 @@ def analiz_et(symbol):
             son["EMA14"] * 1.03
         )
 
-
         # =================================================
-        # KRİTER 3
-        #
-        # RSI 14 >= 50
+        # RSI SİNYALİ
         # =================================================
 
         rsi_sinyal = (
 
             son["RSI14"]
-            >=
+            >
             50
         )
-
 
         # =================================================
         # TÜM ŞARTLAR
         # =================================================
 
         if (
-
             ichimoku_sinyal
             and
             ema_sinyal
             and
             rsi_sinyal
-
         ):
 
             print(
@@ -489,12 +452,10 @@ def analiz_et(symbol):
 
                 "volume": hacim,
 
-                # STOP = EMA14
                 "stop": float(
-                    son["EMA14"]
+                    pivot["stop"]
                 ),
 
-                # K1 / K2 / K3 = Pivot R1 / R2 / R3
                 "k1": float(
                     pivot["k1"]
                 ),
@@ -508,9 +469,7 @@ def analiz_et(symbol):
                 )
             }
 
-
         return None
-
 
     except Exception as hata:
 
@@ -546,7 +505,6 @@ def main():
         )
     )
 
-
     # =====================================================
     # PİYASA SAATİ
     # =====================================================
@@ -563,7 +521,6 @@ def main():
 
         return
 
-
     # =====================================================
     # BIST 100
     # =====================================================
@@ -574,7 +531,6 @@ def main():
 
     bist100 = bist100_listesi()
 
-
     # =====================================================
     # BIST 100 + ANA PAZAR
     # =====================================================
@@ -582,7 +538,6 @@ def main():
     tarama_listesi = sorted(
         bist100 | ANA_PAZAR
     )
-
 
     print(
         "BIST 100 hisse sayisi:",
@@ -599,7 +554,6 @@ def main():
         len(tarama_listesi)
     )
 
-
     # =====================================================
     # GÖNDERİLENLER
     # =====================================================
@@ -609,7 +563,6 @@ def main():
     )
 
     bulunan = []
-
 
     # =====================================================
     # TARAMA
@@ -633,7 +586,6 @@ def main():
                     symbol
                 )
 
-
     # =====================================================
     # KAYDET
     # =====================================================
@@ -641,7 +593,6 @@ def main():
     gonderilenleri_kaydet(
         gonderilenler
     )
-
 
     # =====================================================
     # SONUÇ
@@ -656,7 +607,6 @@ def main():
         "Yeni bulunan hisse:",
         len(bulunan)
     )
-
 
     # =====================================================
     # TELEGRAM
@@ -678,22 +628,59 @@ def main():
 
             pazar_adi = "Bilinmiyor"
 
-
         gunluk_isaret = (
-
             "🟢"
             if sonuc["daily_change"] >= 0
             else "🔴"
         )
 
-
         hafta_isaret = (
-
             "🟢"
             if sonuc["weekly_change"] >= 0
             else "🔴"
         )
 
+        # =================================================
+        # ANLIK FİYATA GÖRE YÜZDE MESAFELERİ
+        # =================================================
+
+        fiyat = sonuc["price"]
+
+        stop_yuzde = (
+            (
+                sonuc["stop"]
+                - fiyat
+            )
+            / fiyat
+        ) * 100
+
+        k1_yuzde = (
+            (
+                sonuc["k1"]
+                - fiyat
+            )
+            / fiyat
+        ) * 100
+
+        k2_yuzde = (
+            (
+                sonuc["k2"]
+                - fiyat
+            )
+            / fiyat
+        ) * 100
+
+        k3_yuzde = (
+            (
+                sonuc["k3"]
+                - fiyat
+            )
+            / fiyat
+        ) * 100
+
+        # =================================================
+        # TELEGRAM MESAJI
+        # =================================================
 
         mesaj = (
 
@@ -704,7 +691,7 @@ def main():
             f"🕒 {now.strftime('%H:%M')}\n"
 
             f"💰 Giriş: "
-            f"{sonuc['price']:.2f} TL\n"
+            f"{fiyat:.2f} TL\n"
 
             f"{gunluk_isaret} Günlük: "
             f"{sonuc['daily_change']:+.2f}%\n"
@@ -718,19 +705,22 @@ def main():
             f"{sonuc['volume']:,.0f}\n\n"
 
             f"🛑 Stop: "
-            f"{sonuc['stop']:.2f} TL\n\n"
+            f"{sonuc['stop']:.2f} TL "
+            f"→ {stop_yuzde:+.2f}%\n\n"
 
             "🎯 Kâr Al:\n"
 
-            f"K1: {sonuc['k1']:.2f} TL\n"
+            f"K1: {sonuc['k1']:.2f} TL "
+            f"→ {k1_yuzde:+.2f}%\n"
 
-            f"K2: {sonuc['k2']:.2f} TL\n"
+            f"K2: {sonuc['k2']:.2f} TL "
+            f"→ {k2_yuzde:+.2f}%\n"
 
-            f"K3: {sonuc['k3']:.2f} TL\n\n"
+            f"K3: {sonuc['k3']:.2f} TL "
+            f"→ {k3_yuzde:+.2f}%\n\n"
 
             "📌 Taramaya yeni girdi."
         )
-
 
         telegram_gonder(
             mesaj
