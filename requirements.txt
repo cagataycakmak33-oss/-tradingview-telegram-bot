@@ -1,4 +1,3 @@
 requests
 pandas
-borsapy
-pypdf
+borsapy>=0.10.2
