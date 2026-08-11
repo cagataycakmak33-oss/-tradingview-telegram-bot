@@ -476,7 +476,7 @@ def analiz_et(symbol):
         print(
             symbol,
             "HATA:",
-            type(hata)._name_,
+            type(hata).__name__,
             str(hata)
         )
 
