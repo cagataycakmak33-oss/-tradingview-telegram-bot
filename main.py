@@ -413,7 +413,7 @@ def analiz_et(symbol):
         rsi_sinyal = (
 
             son["RSI14"]
-            >
+            >=
             50
         )
 
