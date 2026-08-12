@@ -1,10 +1,12 @@
 import os
-import time
 import requests
+import pandas as pd
 import borsapy as bp
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from requests.exceptions import RequestException
 
 
 # =========================================================
@@ -20,11 +22,12 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 
-# TradingView 429 vermemesi için kontrollü paralellik
-MAX_WORKERS = 4
+# Çok yükseltirsek TradingView 429 verebiliyor.
+# 6 paralel istek hız / güvenlik dengesi için kullanılıyor.
+MAX_WORKERS = 6
 
 # 429 durumunda tekrar deneme
-MAX_RETRY = 2
+MAX_RETRIES = 3
 
 
 # =========================================================
@@ -81,7 +84,8 @@ ANA_PAZAR = {
     "BRKVY", "EYGYO", "KRVGD", "PKENT", "YIGIT",
     "BRLSM", "FADE", "KTSKR", "PLTUR", "YKSLN",
     "BULGS", "FMIZP", "KUTPO", "PNLSN", "YUNSA",
-    "BURCE", "FONET", "PRDGS", "ZGYO",
+    "BURCE", "FONET", "KZGYO", "PNSUT", "ZEDUR",
+    "BVSAN", "FORMT", "PRDGS", "ZGYO",
     "FORTE", "LIDFA"
 }
 
@@ -97,52 +101,94 @@ def telegram_gonder(mesaj):
         f"bot{TELEGRAM_TOKEN}/sendMessage"
     )
 
-    response = requests.post(
-        url,
-        data={
-            "chat_id": CHAT_ID,
-            "text": mesaj
-        },
-        timeout=20
-    )
+    try:
 
-    print("Telegram:", response.status_code)
+        response = requests.post(
+            url,
+            data={
+                "chat_id": CHAT_ID,
+                "text": mesaj
+            },
+            timeout=20
+        )
 
-    return response.ok
+        print(
+            "Telegram:",
+            response.status_code
+        )
+
+        return response.ok
+
+    except RequestException as hata:
+
+        print(
+            "Telegram HATA:",
+            str(hata)
+        )
+
+        return False
 
 
 # =========================================================
-# GÖNDERİLEN HİSSELER
+# GÖNDERİLEN HİSSELERİ OKU
 # =========================================================
 
 def gonderilenleri_oku():
 
-    if not os.path.exists(GONDERILEN_DOSYA):
+    if not os.path.exists(
+        GONDERILEN_DOSYA
+    ):
         return set()
 
-    with open(
-        GONDERILEN_DOSYA,
-        "r",
-        encoding="utf-8"
-    ) as dosya:
+    try:
 
-        return {
-            satir.strip()
-            for satir in dosya
-            if satir.strip()
-        }
+        with open(
+            GONDERILEN_DOSYA,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
 
+            return {
+                satir.strip().upper()
+                for satir in dosya
+                if satir.strip()
+            }
+
+    except Exception as hata:
+
+        print(
+            "Gönderilenler okunamadı:",
+            str(hata)
+        )
+
+        return set()
+
+
+# =========================================================
+# GÖNDERİLEN HİSSELERİ KAYDET
+# =========================================================
 
 def gonderilenleri_kaydet(hisseler):
 
-    with open(
-        GONDERILEN_DOSYA,
-        "w",
-        encoding="utf-8"
-    ) as dosya:
+    try:
 
-        for hisse in sorted(hisseler):
-            dosya.write(hisse + "\n")
+        with open(
+            GONDERILEN_DOSYA,
+            "w",
+            encoding="utf-8"
+        ) as dosya:
+
+            for hisse in sorted(hisseler):
+                dosya.write(
+                    hisse + "\n"
+                )
+
+    except Exception as hata:
+
+        print(
+            "Gönderilenler kaydedilemedi:",
+            str(hata)
+        )
 
 
 # =========================================================
@@ -155,6 +201,7 @@ def piyasa_acik_mi():
         ZoneInfo("Europe/Istanbul")
     )
 
+    # Cumartesi / Pazar
     if now.weekday() >= 5:
         return False
 
@@ -163,8 +210,15 @@ def piyasa_acik_mi():
         + now.minute
     )
 
-    baslangic = 9 * 60 + 40
-    bitis = 18 * 60 + 10
+    baslangic = (
+        9 * 60
+        + 40
+    )
+
+    bitis = (
+        18 * 60
+        + 10
+    )
 
     return (
         baslangic
@@ -179,12 +233,26 @@ def piyasa_acik_mi():
 
 def bist100_listesi():
 
-    index = bp.Index("XU100")
+    try:
 
-    return {
-        str(hisse).upper()
-        for hisse in index.component_symbols
-    }
+        index = bp.Index(
+            "XU100"
+        )
+
+        return {
+            str(hisse).upper()
+            for hisse
+            in index.component_symbols
+        }
+
+    except Exception as hata:
+
+        print(
+            "BIST 100 alınamadı:",
+            str(hata)
+        )
+
+        return set()
 
 
 # =========================================================
@@ -218,62 +286,31 @@ def rsi_hesapla(close):
         / ort_kayip
     )
 
-    return 100 - (
-        100 / (1 + rs)
+    return (
+        100
+        - (
+            100
+            / (1 + rs)
+        )
     )
 
 
 # =========================================================
-# PİVOT
-# SADECE K1-K2-K3 İÇİN
+# TEK HİSSE VERİSİNİ AL
 # =========================================================
 
-def pivot_hesapla(high, low, close):
+def veri_al(symbol):
 
-    pivot = (
-        high
-        + low
-        + close
-    ) / 3
-
-    r1 = (
-        2 * pivot
-        - low
-    )
-
-    r2 = (
-        pivot
-        + (high - low)
-    )
-
-    r3 = (
-        high
-        + 2 * (pivot - low)
-    )
-
-    return {
-        "k1": r1,
-        "k2": r2,
-        "k3": r3
-    }
-
-
-# =========================================================
-# HİSSE ANALİZİ
-# =========================================================
-
-def analiz_et(symbol):
-
-    for deneme in range(MAX_RETRY + 1):
+    for deneme in range(
+        1,
+        MAX_RETRIES + 1
+    ):
 
         try:
 
-            print(
-                "Taranıyor:",
+            ticker = bp.Ticker(
                 symbol
             )
-
-            ticker = bp.Ticker(symbol)
 
             df = ticker.history(
                 period="6mo"
@@ -285,252 +322,366 @@ def analiz_et(symbol):
             if len(df) < 60:
                 return None
 
-            df = df.copy()
-
-            # =================================================
-            # EMA 14
-            # =================================================
-
-            df["EMA14"] = (
-                df["Close"]
-                .ewm(
-                    span=EMA_PERIOD,
-                    adjust=False
-                )
-                .mean()
-            )
-
-            # =================================================
-            # RSI 14
-            # =================================================
-
-            df["RSI14"] = rsi_hesapla(
-                df["Close"]
-            )
-
-            # =================================================
-            # ICHIMOKU BASE LINE
-            # =================================================
-
-            base_yuksek = (
-                df["High"]
-                .rolling(
-                    BASE_PERIOD
-                )
-                .max()
-            )
-
-            base_dusuk = (
-                df["Low"]
-                .rolling(
-                    BASE_PERIOD
-                )
-                .min()
-            )
-
-            df["BASE"] = (
-                base_yuksek
-                + base_dusuk
-            ) / 2
-
-            # =================================================
-            # SON 2 GÜN
-            # =================================================
-
-            onceki = df.iloc[-2]
-            son = df.iloc[-1]
-
-            # =================================================
-            # 1 HAFTA
-            # =================================================
-
-            hafta_once = df.iloc[-6]
-
-            bir_haftalik_degisim = (
-                (
-                    son["Close"]
-                    / hafta_once["Close"]
-                ) - 1
-            ) * 100
-
-            # =================================================
-            # GÜNLÜK
-            # =================================================
-
-            gunluk_degisim = (
-                (
-                    son["Close"]
-                    / onceki["Close"]
-                ) - 1
-            ) * 100
-
-            # =================================================
-            # HACİM
-            # =================================================
-
-            hacim = float(
-                son["Volume"]
-            )
-
-            # =================================================
-            # KÂR AL
-            # =================================================
-
-            pivot = pivot_hesapla(
-                float(onceki["High"]),
-                float(onceki["Low"]),
-                float(onceki["Close"])
-            )
-
-            # =================================================
-            # ICHIMOKU
-            # =================================================
-
-            ichimoku_sinyal = (
-
-                onceki["BASE"]
-                >=
-                onceki["Close"]
-
-                and
-
-                son["BASE"]
-                <
-                son["Close"]
-            )
-
-            # =================================================
-            # EMA %3
-            # =================================================
-
-            ema_sinyal = (
-
-                son["Close"]
-                >=
-                son["EMA14"] * 1.03
-            )
-
-            # =================================================
-            # RSI >= 50
-            # =================================================
-
-            rsi_sinyal = (
-
-                son["RSI14"]
-                >=
-                50
-            )
-
-            # =================================================
-            # TÜM ŞARTLAR
-            # =================================================
-
-            if (
-                ichimoku_sinyal
-                and
-                ema_sinyal
-                and
-                rsi_sinyal
-            ):
-
-                print(
-                    "🚨 SİNYAL:",
-                    symbol
-                )
-
-                # =================================================
-                # STOP = EMA14
-                # =================================================
-
-                stop_ema14 = float(
-                    son["EMA14"]
-                )
-
-                return {
-
-                    "symbol": symbol,
-
-                    "price": float(
-                        son["Close"]
-                    ),
-
-                    "ema14": stop_ema14,
-
-                    "daily_change": float(
-                        gunluk_degisim
-                    ),
-
-                    "weekly_change": float(
-                        bir_haftalik_degisim
-                    ),
-
-                    "volume": hacim,
-
-                    "stop": stop_ema14,
-
-                    "k1": float(
-                        pivot["k1"]
-                    ),
-
-                    "k2": float(
-                        pivot["k2"]
-                    ),
-
-                    "k3": float(
-                        pivot["k3"]
-                    )
-                }
-
-            return None
+            return df.copy()
 
         except Exception as hata:
 
             hata_metni = str(hata)
 
-            # =================================================
-            # 429 RATE LIMIT
-            # =================================================
-
+            # TradingView 429
             if (
-                "429"
-                in hata_metni
-                or
-                "Too Many Requests"
+                "429" in hata_metni
+                or "Too Many Requests"
                 in hata_metni
             ):
 
-                if deneme < MAX_RETRY:
+                bekleme = (
+                    2 ** deneme
+                )
 
-                    bekleme = (
-                        2 ** deneme
-                    )
+                print(
+                    f"{symbol}: 429 - "
+                    f"{bekleme} sn bekleniyor "
+                    f"(deneme {deneme}/{MAX_RETRIES})"
+                )
 
-                    print(
-                        f"⚠️ {symbol} için "
-                        f"429 geldi. "
-                        f"{bekleme} saniye bekleniyor..."
-                    )
+                import time
 
-                    time.sleep(
-                        bekleme
-                    )
+                time.sleep(
+                    bekleme
+                )
 
-                    continue
-
-            # =================================================
-            # NORMAL HATA
-            # =================================================
+                continue
 
             print(
                 symbol,
-                "HATA:",
+                "VERİ HATASI:",
                 type(hata)._name_,
                 str(hata)
             )
 
             return None
 
+    print(
+        symbol,
+        "429 nedeniyle atlandı."
+    )
+
     return None
+
+
+# =========================================================
+# HİSSE ANALİZİ
+# =========================================================
+
+def analiz_et(symbol):
+
+    try:
+
+        print(
+            "Taranıyor:",
+            symbol
+        )
+
+        df = veri_al(
+            symbol
+        )
+
+        if df is None:
+            return None
+
+        # =================================================
+        # SÜTUN KONTROLÜ
+        # =================================================
+
+        gerekli = {
+            "High",
+            "Low",
+            "Close",
+            "Volume"
+        }
+
+        if not gerekli.issubset(
+            df.columns
+        ):
+            print(
+                symbol,
+                "Gerekli veri sütunları eksik."
+            )
+
+            return None
+
+        # =================================================
+        # EMA 14
+        # =================================================
+
+        df["EMA14"] = (
+            df["Close"]
+            .ewm(
+                span=EMA_PERIOD,
+                adjust=False
+            )
+            .mean()
+        )
+
+        # =================================================
+        # RSI 14
+        # =================================================
+
+        df["RSI14"] = rsi_hesapla(
+            df["Close"]
+        )
+
+        # =================================================
+        # ICHIMOKU BASE LINE
+        # 9 / 26 / 52 / 26
+        #
+        # Base Line = 26 periyot
+        # =================================================
+
+        base_yuksek = (
+            df["High"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .max()
+        )
+
+        base_dusuk = (
+            df["Low"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .min()
+        )
+
+        df["BASE"] = (
+            base_yuksek
+            + base_dusuk
+        ) / 2
+
+        # =================================================
+        # SON İKİ GÜN
+        # =================================================
+
+        onceki = df.iloc[-2]
+        son = df.iloc[-1]
+
+        # =================================================
+        # 1 HAFTA DEĞİŞİM
+        # =================================================
+
+        if len(df) >= 6:
+
+            hafta_once = df.iloc[-6]
+
+        else:
+
+            hafta_once = df.iloc[0]
+
+        bir_haftalik_degisim = (
+            (
+                son["Close"]
+                / hafta_once["Close"]
+            )
+            - 1
+        ) * 100
+
+        # =================================================
+        # GÜNLÜK DEĞİŞİM
+        # =================================================
+
+        gunluk_degisim = (
+            (
+                son["Close"]
+                / onceki["Close"]
+            )
+            - 1
+        ) * 100
+
+        # =================================================
+        # HACİM
+        # =================================================
+
+        try:
+
+            hacim = float(
+                son["Volume"]
+            )
+
+        except Exception:
+
+            hacim = 0.0
+
+        # =================================================
+        # ICHIMOKU SİNYALİ
+        #
+        # Önceki gün:
+        # Base >= Fiyat
+        #
+        # Son gün:
+        # Base < Fiyat
+        #
+        # Yani Base Line fiyatı aşağı kesmiş oluyor.
+        # =================================================
+
+        ichimoku_sinyal = (
+            onceki["BASE"]
+            >=
+            onceki["Close"]
+            and
+            son["BASE"]
+            <
+            son["Close"]
+        )
+
+        # =================================================
+        # EMA SİNYALİ
+        #
+        # Fiyat EMA14'ün en az %3 üzerinde
+        # =================================================
+
+        ema_sinyal = (
+            son["Close"]
+            >=
+            son["EMA14"] * 1.03
+        )
+
+        # =================================================
+        # RSI SİNYALİ
+        #
+        # RSI14 >= 50
+        # =================================================
+
+        rsi_sinyal = (
+            son["RSI14"]
+            >=
+            50
+        )
+
+        # =================================================
+        # TÜM ŞARTLAR
+        # =================================================
+
+        if not (
+            ichimoku_sinyal
+            and
+            ema_sinyal
+            and
+            rsi_sinyal
+        ):
+            return None
+
+        print(
+            "🚨 SİNYAL:",
+            symbol
+        )
+
+        # =================================================
+        # STOP = EMA14
+        # =================================================
+
+        stop = float(
+            son["EMA14"]
+        )
+
+        # =================================================
+        # PİVOT KÂR AL SEVİYELERİ
+        #
+        # Stop artık EMA14.
+        # K1/K2/K3 pivot olarak kalıyor.
+        # =================================================
+
+        high = float(
+            onceki["High"]
+        )
+
+        low = float(
+            onceki["Low"]
+        )
+
+        close = float(
+            onceki["Close"]
+        )
+
+        pivot = (
+            high
+            + low
+            + close
+        ) / 3
+
+        r1 = (
+            2 * pivot
+            - low
+        )
+
+        r2 = (
+            pivot
+            + (
+                high
+                - low
+            )
+        )
+
+        r3 = (
+            high
+            + 2 * (
+                pivot
+                - low
+            )
+        )
+
+        return {
+
+            "symbol": symbol,
+
+            "price": float(
+                son["Close"]
+            ),
+
+            "daily_change": float(
+                gunluk_degisim
+            ),
+
+            "weekly_change": float(
+                bir_haftalik_degisim
+            ),
+
+            "volume": hacim,
+
+            "ema14": float(
+                son["EMA14"]
+            ),
+
+            "rsi14": float(
+                son["RSI14"]
+            ),
+
+            "stop": stop,
+
+            "k1": float(
+                r1
+            ),
+
+            "k2": float(
+                r2
+            ),
+
+            "k3": float(
+                r3
+            )
+        }
+
+    except Exception as hata:
+
+        print(
+            symbol,
+            "HATA:",
+            type(hata)._name_,
+            str(hata)
+        )
+
+        return None
 
 
 # =========================================================
@@ -540,9 +691,15 @@ def analiz_et(symbol):
 def main():
 
     print("")
-    print("====================================")
-    print("TRADING BOT BASLADI")
-    print("====================================")
+    print(
+        "===================================="
+    )
+    print(
+        "TRADING BOT BASLADI"
+    )
+    print(
+        "===================================="
+    )
 
     now = datetime.now(
         ZoneInfo("Europe/Istanbul")
@@ -579,14 +736,26 @@ def main():
         "BIST 100 listesi aliniyor..."
     )
 
-    bist100 = bist100_listesi()
+    bist100 = (
+        bist100_listesi()
+    )
+
+    if not bist100:
+
+        print(
+            "BIST 100 listesi alınamadı."
+        )
+
+        return
 
     # =====================================================
     # BIST 100 + ANA PAZAR
     # =====================================================
 
     tarama_listesi = sorted(
-        bist100 | ANA_PAZAR
+        bist100
+        |
+        ANA_PAZAR
     )
 
     print(
@@ -605,7 +774,7 @@ def main():
     )
 
     # =====================================================
-    # BAŞLANGIÇ
+    # TARAMA BAŞLANGIÇ
     # =====================================================
 
     baslangic_zamani = datetime.now(
@@ -622,13 +791,15 @@ def main():
 
     bulunan = []
 
+    tamamlanan = 0
+
     # =====================================================
-    # PARALEL TARAMA
+    # HIZLI PARALEL TARAMA
     # =====================================================
 
     print("")
     print(
-        f"⚡ Kontrollü hızlı tarama başlıyor..."
+        "⚡ Hızlı tarama başlıyor..."
     )
 
     print(
@@ -651,13 +822,17 @@ def main():
             gelecekler
         ):
 
-            symbol = gelecekler[
-                gelecek
-            ]
+            symbol = (
+                gelecekler[gelecek]
+            )
 
             try:
 
-                sonuc = gelecek.result()
+                sonuc = (
+                    gelecek.result()
+                )
+
+                tamamlanan += 1
 
                 if sonuc:
 
@@ -676,11 +851,23 @@ def main():
 
             except Exception as hata:
 
+                tamamlanan += 1
+
                 print(
                     symbol,
-                    "PARALEL TARAMA HATASI:",
+                    "PARALEL HATA:",
                     type(hata)._name_,
                     str(hata)
+                )
+
+            if (
+                tamamlanan % 25 == 0
+            ):
+
+                print(
+                    f"İlerleme: "
+                    f"{tamamlanan}/"
+                    f"{len(tarama_listesi)}"
                 )
 
     # =====================================================
@@ -696,13 +883,24 @@ def main():
         - baslangic_zamani
     ).total_seconds()
 
+    dakika = int(
+        sure // 60
+    )
+
+    saniye = int(
+        sure % 60
+    )
+
     print("")
     print(
-        f"⏱️ Tarama süresi: {sure:.1f} saniye"
+        f"⏱️ Tarama süresi: "
+        f"{dakika} dakika "
+        f"{saniye} saniye "
+        f"({sure:.1f} saniye)"
     )
 
     # =====================================================
-    # KAYDET
+    # GÖNDERİLENLERİ KAYDET
     # =====================================================
 
     gonderilenleri_kaydet(
@@ -714,9 +912,15 @@ def main():
     # =====================================================
 
     print("")
-    print("====================================")
-    print("TARAMA TAMAMLANDI")
-    print("====================================")
+    print(
+        "===================================="
+    )
+    print(
+        "TARAMA TAMAMLANDI"
+    )
+    print(
+        "===================================="
+    )
 
     print(
         "Yeni bulunan hisse:",
@@ -729,7 +933,9 @@ def main():
 
     for sonuc in bulunan:
 
-        symbol = sonuc["symbol"]
+        symbol = (
+            sonuc["symbol"]
+        )
 
         if symbol in bist100:
 
@@ -743,15 +949,27 @@ def main():
 
             pazar_adi = "Bilinmiyor"
 
+        # =================================================
+        # GÜNLÜK İŞARET
+        # =================================================
+
         gunluk_isaret = (
             "🟢"
-            if sonuc["daily_change"] >= 0
+            if sonuc[
+                "daily_change"
+            ] >= 0
             else "🔴"
         )
 
+        # =================================================
+        # HAFTALIK İŞARET
+        # =================================================
+
         hafta_isaret = (
             "🟢"
-            if sonuc["weekly_change"] >= 0
+            if sonuc[
+                "weekly_change"
+            ] >= 0
             else "🔴"
         )
 
@@ -759,7 +977,9 @@ def main():
         # FİYAT
         # =================================================
 
-        fiyat = sonuc["price"]
+        fiyat = (
+            sonuc["price"]
+        )
 
         # =================================================
         # STOP = EMA14
@@ -774,7 +994,7 @@ def main():
         ) * 100
 
         # =================================================
-        # KÂR AL
+        # KÂR AL YÜZDELERİ
         # =================================================
 
         k1_yuzde = (
@@ -822,24 +1042,34 @@ def main():
             f"{hafta_isaret} 1 Hafta: "
             f"{sonuc['weekly_change']:+.2f}%\n\n"
 
-            f"🏷️ Pazar: {pazar_adi}\n\n"
+            f"🏷️ Pazar: "
+            f"{pazar_adi}\n\n"
 
             f"📊 Hacim: "
             f"{sonuc['volume']:,.0f}\n\n"
 
-            f"🛑 Stop EMA14: "
+            f"📉 EMA14: "
+            f"{sonuc['ema14']:.2f} TL\n"
+
+            f"📊 RSI14: "
+            f"{sonuc['rsi14']:.2f}\n\n"
+
+            f"🛑 Stop (EMA14): "
             f"{sonuc['stop']:.2f} TL "
             f"→ {stop_yuzde:+.2f}%\n\n"
 
             "🎯 Kâr Al:\n"
 
-            f"K1: {sonuc['k1']:.2f} TL "
+            f"K1: "
+            f"{sonuc['k1']:.2f} TL "
             f"→ {k1_yuzde:+.2f}%\n"
 
-            f"K2: {sonuc['k2']:.2f} TL "
+            f"K2: "
+            f"{sonuc['k2']:.2f} TL "
             f"→ {k2_yuzde:+.2f}%\n"
 
-            f"K3: {sonuc['k3']:.2f} TL "
+            f"K3: "
+            f"{sonuc['k3']:.2f} TL "
             f"→ {k3_yuzde:+.2f}%\n\n"
 
             "📌 Taramaya yeni girdi."
