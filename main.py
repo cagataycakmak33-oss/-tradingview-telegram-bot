@@ -3,6 +3,8 @@ import requests
 import borsapy as bp
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 # =========================================================
 # AYARLAR
@@ -15,9 +17,10 @@ GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
 
 EMA_PERIOD = 14
 RSI_PERIOD = 14
-
-# Ichimoku
 BASE_PERIOD = 26
+
+# Aynı anda taranacak hisse sayısı
+MAX_WORKERS = 12
 
 
 # =========================================================
@@ -74,8 +77,7 @@ ANA_PAZAR = {
     "BRKVY", "EYGYO", "KRVGD", "PKENT", "YIGIT",
     "BRLSM", "FADE", "KTSKR", "PLTUR", "YKSLN",
     "BULGS", "FMIZP", "KUTPO", "PNLSN", "YUNSA",
-    "BURCE", "FONET", "KZGYO", "PNSUT", "ZEDUR",
-    "BVSAN", "FORMT", "PRDGS", "ZGYO",
+    "BURCE", "FONET", "PRDGS", "ZGYO",
     "FORTE", "LIDFA"
 }
 
@@ -219,6 +221,8 @@ def rsi_hesapla(close):
 
 # =========================================================
 # PİVOT
+# K1 - K2 - K3 İÇİN KULLANILIYOR
+# STOP ARTIK PİVOT DEĞİL
 # =========================================================
 
 def pivot_hesapla(high, low, close):
@@ -244,13 +248,7 @@ def pivot_hesapla(high, low, close):
         + 2 * (pivot - low)
     )
 
-    s1 = (
-        2 * pivot
-        - high
-    )
-
     return {
-        "stop": s1,
         "k1": r1,
         "k2": r2,
         "k3": r3
@@ -307,7 +305,8 @@ def analiz_et(symbol):
 
         # =================================================
         # ICHIMOKU BASE LINE
-        # 9,26,52,26 sistemindeki Base Line = 26
+        # 9,26,52,26
+        # Base Line = 26
         # =================================================
 
         base_yuksek = (
@@ -371,7 +370,7 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # STOP / KÂR AL
+        # KÂR AL SEVİYELERİ
         # =================================================
 
         pivot = pivot_hesapla(
@@ -382,9 +381,12 @@ def analiz_et(symbol):
 
         # =================================================
         # ICHIMOKU SİNYALİ
-        # Base Line fiyatı aşağı keser:
-        # önceki mumda Base >= Fiyat
-        # son mumda Base < Fiyat
+        #
+        # Önceki mum:
+        # Base >= Fiyat
+        #
+        # Son mum:
+        # Base < Fiyat
         # =================================================
 
         ichimoku_sinyal = (
@@ -402,6 +404,7 @@ def analiz_et(symbol):
 
         # =================================================
         # EMA SİNYALİ
+        #
         # Fiyat EMA14'ten %3 veya daha fazla yukarıda
         # =================================================
 
@@ -414,7 +417,8 @@ def analiz_et(symbol):
 
         # =================================================
         # RSI SİNYALİ
-        # TradingView: RSI14 >= 50
+        #
+        # RSI14 >= 50
         # =================================================
 
         rsi_sinyal = (
@@ -441,6 +445,14 @@ def analiz_et(symbol):
                 symbol
             )
 
+            # =================================================
+            # STOP = EMA 14
+            # =================================================
+
+            stop_ema14 = float(
+                son["EMA14"]
+            )
+
             return {
 
                 "symbol": symbol,
@@ -448,6 +460,8 @@ def analiz_et(symbol):
                 "price": float(
                     son["Close"]
                 ),
+
+                "ema14": stop_ema14,
 
                 "daily_change": float(
                     gunluk_degisim
@@ -459,9 +473,7 @@ def analiz_et(symbol):
 
                 "volume": hacim,
 
-                "stop": float(
-                    pivot["stop"]
-                ),
+                "stop": stop_ema14,
 
                 "k1": float(
                     pivot["k1"]
@@ -580,25 +592,67 @@ def main():
     bulunan = []
 
     # =====================================================
-    # TARAMA
+    # HIZLI PARALEL TARAMA
     # =====================================================
 
-    for symbol in tarama_listesi:
+    print(
+        ""
+    )
 
-        sonuc = analiz_et(
-            symbol
-        )
+    print(
+        f"⚡ Hızlı tarama başlıyor..."
+    )
 
-        if sonuc:
+    print(
+        f"⚡ Aynı anda {MAX_WORKERS} hisse taranacak."
+    )
 
-            if symbol not in gonderilenler:
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS
+    ) as executor:
 
-                bulunan.append(
-                    sonuc
-                )
+        gelecekler = {
+            executor.submit(
+                analiz_et,
+                symbol
+            ): symbol
+            for symbol in tarama_listesi
+        }
 
-                gonderilenler.add(
-                    symbol
+        for gelecek in as_completed(
+            gelecekler
+        ):
+
+            symbol = gelecekler[
+                gelecek
+            ]
+
+            try:
+
+                sonuc = gelecek.result()
+
+                if sonuc:
+
+                    if (
+                        symbol
+                        not in gonderilenler
+                    ):
+
+                        bulunan.append(
+                            sonuc
+                        )
+
+                        gonderilenler.add(
+                            symbol
+                        )
+
+            except Exception as hata:
+
+                print(
+                    symbol,
+                    "PARALEL TARAMA HATASI:",
+                    type(hata)._name_,
+                    str(hata)
                 )
 
     # =====================================================
@@ -613,6 +667,10 @@ def main():
         bitis_zamani
         - baslangic_zamani
     ).total_seconds()
+
+    print(
+        ""
+    )
 
     print(
         f"⏱️ Tarama süresi: {sure:.1f} saniye"
@@ -673,10 +731,14 @@ def main():
         )
 
         # =================================================
-        # ANLIK FİYATA GÖRE YÜZDE MESAFELERİ
+        # FİYAT
         # =================================================
 
         fiyat = sonuc["price"]
+
+        # =================================================
+        # STOP = EMA14
+        # =================================================
 
         stop_yuzde = (
             (
@@ -685,6 +747,10 @@ def main():
             )
             / fiyat
         ) * 100
+
+        # =================================================
+        # KÂR AL YÜZDELERİ
+        # =================================================
 
         k1_yuzde = (
             (
@@ -736,7 +802,7 @@ def main():
             f"📊 Hacim: "
             f"{sonuc['volume']:,.0f}\n\n"
 
-            f"🛑 Stop: "
+            f"🛑 Stop EMA14: "
             f"{sonuc['stop']:.2f} TL "
             f"→ {stop_yuzde:+.2f}%\n\n"
 
