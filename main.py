@@ -550,9 +550,13 @@ def main():
     )
 
     print(
-        "Toplam benzersiz taranacak hisse:",
-        len(tarama_listesi)
-    )
+    "Toplam benzersiz taranacak hisse:",
+    len(tarama_listesi)
+)
+
+baslangic_zamani = datetime.now(
+    ZoneInfo("Europe/Istanbul")
+)
 
     # =====================================================
     # GÖNDERİLENLER
