@@ -1,26 +1,39 @@
 name: Trading Bot Calistir
+
 on:
   schedule:
-    - cron: "40-55/5 6 * * 1-5"
-    - cron: "*/5 7-14 * * 1-5"
-    - cron: "0-10/5 15 * * 1-5"
+    - cron: "50,55 9 * * 1-5"
+      timezone: "Europe/Istanbul"
+
+    - cron: "*/5 10-17 * * 1-5"
+      timezone: "Europe/Istanbul"
+
+    - cron: "0,5 18 * * 1-5"
+      timezone: "Europe/Istanbul"
+
   workflow_dispatch:
+
 jobs:
   bot:
     runs-on: ubuntu-latest
+
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
     steps:
       - name: Kodu indir
         uses: actions/checkout@v4
+
       - name: Python kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Paketleri yukle
         run: |
           pip install -r requirements.txt
+
       - name: Botu calistir
         run: |
           python main.py
