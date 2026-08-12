@@ -45,7 +45,7 @@ ANA_PAZAR = {
     "ANGEN", "DGATE", "HUNER", "MERCN", "SMART",
     "ARENA", "DGNMO", "HURGZ", "METRO", "SMRVA",
     "ARFYE", "DITAS", "ICBCT", "MEYSU", "SNICA",
-    "ARSAN", "DMRGD", "ICUGS", "MHRGY", "SOKE",
+    "ARSAN", "DMRGD", "ICUGS", "IHAAS", "MHRGY",
     "ARTMS", "DMSAS", "IHAAS", "MNDRS", "SVGYO",
     "ARZUM", "DNISI", "IHGZT", "MNDTR", "TATGD",
     "AVGYO", "DOCO", "IHLGM", "MRGYO", "TBORG",
@@ -54,24 +54,23 @@ ANA_PAZAR = {
     "AYCES", "DUNYH", "INGRM", "MTRKS", "TERA",
     "AYEN", "DURDO", "INTEM", "NETAS", "TGSAS",
     "AZTEK", "DURKN", "ISGSY", "NIBAS", "TKNSA",
-    "BAGFS", "DYOBY", "ISSEN", "NUGYO", "TLMAN",
-    "BAHKM", "DZGYO", "ISYAT", "OBASE", "TMPOL",
-    "BAKAB", "EDATA", "IZFAS", "OFSYM", "TSGYO",
-    "BANVT", "EDIP", "IZINV", "ONCSM", "TUCLK",
-    "BAYRK", "EGEGY", "IZMDC", "ONRYT", "TURGG",
-    "BEGYO", "EGEPO", "JANTS", "OSMEN", "UFUK",
-    "BESTE", "EGSER", "KAPLM", "OSTIM", "ULUFA",
-    "BEYAZ", "EKOS", "KARTN", "OTTO", "ULUSE",
-    "BIGCH", "EKSUN", "KFEIN", "OZGYO", "ULUUN",
-    "BIGTK", "ELITE", "KGYO", "OZSUB", "UNLU",
-    "BIZIM", "EMKEL", "KIMMR", "OZYSR", "VBTYZ",
-    "BLCYT", "EMPAE", "KLMSN", "PAMEL", "VERTU",
-    "BLUME", "ENSRI", "KLSYN", "PCILT", "VERUS",
-    "BMSCH", "EPLAS", "KNFRT", "PEKGY", "VKING",
-    "BMSTL", "ERBOS", "KONKA", "PENGD", "VRGYO",
-    "BNTAS", "ERCB", "KRONT", "PETUN", "YAPRK",
-    "BORSK", "ESCOM", "KRPLS", "PINSU", "YAYLA",
-    "BOSSA", "ETILR", "KRSTL", "PKART", "YESIL",
+    "BAGFS", "DYOBY", "DZGYO", "ISYAT", "OBASE",
+    "BAHKM", "EDATA", "IZFAS", "OFSYM", "TSGYO",
+    "BAKAB", "EDIP", "IZINV", "ONCSM", "TUCLK",
+    "BANVT", "EGEGY", "IZMDC", "ONRYT", "TURGG",
+    "BAYRK", "EGEPO", "JANTS", "OSMEN", "UFUK",
+    "BEGYO", "EGSER", "KAPLM", "OSTIM", "ULUFA",
+    "BESTE", "EKOS", "KARTN", "OTTO", "ULUSE",
+    "BEYAZ", "EKSUN", "KFEIN", "OZGYO", "ULUUN",
+    "BIGCH", "ELITE", "KGYO", "OZSUB", "UNLU",
+    "BIGTK", "EMKEL", "KIMMR", "OZYSR", "VBTYZ",
+    "BIZIM", "EMPAE", "KLMSN", "PAMEL", "VERTU",
+    "BLCYT", "ENSRI", "KLSYN", "PCILT", "VERUS",
+    "BLUME", "EPLAS", "KNFRT", "PEKGY", "VKING",
+    "BMSCH", "ERBOS", "KONKA", "PENGD", "VRGYO",
+    "BMSTL", "ERCB", "KRONT", "PETUN", "YAPRK",
+    "BNTAS", "ESCOM", "KRPLS", "PINSU", "YAYLA",
+    "BORSK", "ETILR", "KRSTL", "PKART", "YESIL",
     "BRKVY", "EYGYO", "KRVGD", "PKENT", "YIGIT",
     "BRLSM", "FADE", "KTSKR", "PLTUR", "YKSLN",
     "BULGS", "FMIZP", "KUTPO", "PNLSN", "YUNSA",
@@ -87,7 +86,10 @@ ANA_PAZAR = {
 
 def telegram_gonder(mesaj):
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = (
+        f"https://api.telegram.org/"
+        f"bot{TELEGRAM_TOKEN}/sendMessage"
+    )
 
     response = requests.post(
         url,
@@ -304,7 +306,8 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # ICHIMOKU BASE
+        # ICHIMOKU BASE LINE
+        # 9,26,52,26 sistemindeki Base Line = 26
         # =================================================
 
         base_yuksek = (
@@ -379,6 +382,9 @@ def analiz_et(symbol):
 
         # =================================================
         # ICHIMOKU SİNYALİ
+        # Base Line fiyatı aşağı keser:
+        # önceki mumda Base >= Fiyat
+        # son mumda Base < Fiyat
         # =================================================
 
         ichimoku_sinyal = (
@@ -408,6 +414,7 @@ def analiz_et(symbol):
 
         # =================================================
         # RSI SİNYALİ
+        # TradingView: RSI14 >= 50
         # =================================================
 
         rsi_sinyal = (
@@ -476,7 +483,7 @@ def analiz_et(symbol):
         print(
             symbol,
             "HATA:",
-            type(hata).__name__,
+            type(hata)._name_,
             str(hata)
         )
 
@@ -550,13 +557,17 @@ def main():
     )
 
     print(
-    "Toplam benzersiz taranacak hisse:",
-    len(tarama_listesi)
-)
+        "Toplam benzersiz taranacak hisse:",
+        len(tarama_listesi)
+    )
 
-baslangic_zamani = datetime.now(
-    ZoneInfo("Europe/Istanbul")
-)
+    # =====================================================
+    # TARAMA BAŞLANGIÇ ZAMANI
+    # =====================================================
+
+    baslangic_zamani = datetime.now(
+        ZoneInfo("Europe/Istanbul")
+    )
 
     # =====================================================
     # GÖNDERİLENLER
@@ -590,21 +601,26 @@ baslangic_zamani = datetime.now(
                     symbol
                 )
 
-bitis_zamani = datetime.now(
-    ZoneInfo("Europe/Istanbul")
-)
+    # =====================================================
+    # TARAMA SÜRESİ
+    # =====================================================
 
-sure = (
-    bitis_zamani - baslangic_zamani
-).total_seconds()
+    bitis_zamani = datetime.now(
+        ZoneInfo("Europe/Istanbul")
+    )
 
-print(
-    f"⏱️ Tarama süresi: {sure:.1f} saniye"
-)
+    sure = (
+        bitis_zamani
+        - baslangic_zamani
+    ).total_seconds()
 
-# =====================================================
-# KAYDET
-# =====================================================
+    print(
+        f"⏱️ Tarama süresi: {sure:.1f} saniye"
+    )
+
+    # =====================================================
+    # KAYDET
+    # =====================================================
 
     gonderilenleri_kaydet(
         gonderilenler
