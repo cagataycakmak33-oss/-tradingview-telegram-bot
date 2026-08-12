@@ -590,9 +590,21 @@ baslangic_zamani = datetime.now(
                     symbol
                 )
 
-    # =====================================================
-    # KAYDET
-    # =====================================================
+bitis_zamani = datetime.now(
+    ZoneInfo("Europe/Istanbul")
+)
+
+sure = (
+    bitis_zamani - baslangic_zamani
+).total_seconds()
+
+print(
+    f"⏱️ Tarama süresi: {sure:.1f} saniye"
+)
+
+# =====================================================
+# KAYDET
+# =====================================================
 
     gonderilenleri_kaydet(
         gonderilenler
