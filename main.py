@@ -1,12 +1,11 @@
 import os
+import time
 import requests
-import pandas as pd
 import borsapy as bp
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from requests.exceptions import RequestException
 
 
 # =========================================================
@@ -22,11 +21,10 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 
-# Çok yükseltirsek TradingView 429 verebiliyor.
-# 6 paralel istek hız / güvenlik dengesi için kullanılıyor.
-MAX_WORKERS = 6
+# 429 almamak için şimdilik 4 paralel
+MAX_WORKERS = 4
 
-# 429 durumunda tekrar deneme
+# 429 tekrar deneme
 MAX_RETRIES = 3
 
 
@@ -119,10 +117,11 @@ def telegram_gonder(mesaj):
 
         return response.ok
 
-    except RequestException as hata:
+    except Exception as hata:
 
         print(
             "Telegram HATA:",
+            type(hata)._name_,
             str(hata)
         )
 
@@ -130,7 +129,7 @@ def telegram_gonder(mesaj):
 
 
 # =========================================================
-# GÖNDERİLEN HİSSELERİ OKU
+# GÖNDERİLENLERİ OKU
 # =========================================================
 
 def gonderilenleri_oku():
@@ -158,6 +157,7 @@ def gonderilenleri_oku():
 
         print(
             "Gönderilenler okunamadı:",
+            type(hata)._name_,
             str(hata)
         )
 
@@ -165,7 +165,7 @@ def gonderilenleri_oku():
 
 
 # =========================================================
-# GÖNDERİLEN HİSSELERİ KAYDET
+# GÖNDERİLENLERİ KAYDET
 # =========================================================
 
 def gonderilenleri_kaydet(hisseler):
@@ -179,6 +179,7 @@ def gonderilenleri_kaydet(hisseler):
         ) as dosya:
 
             for hisse in sorted(hisseler):
+
                 dosya.write(
                     hisse + "\n"
                 )
@@ -187,6 +188,7 @@ def gonderilenleri_kaydet(hisseler):
 
         print(
             "Gönderilenler kaydedilemedi:",
+            type(hata)._name_,
             str(hata)
         )
 
@@ -201,7 +203,6 @@ def piyasa_acik_mi():
         ZoneInfo("Europe/Istanbul")
     )
 
-    # Cumartesi / Pazar
     if now.weekday() >= 5:
         return False
 
@@ -241,14 +242,14 @@ def bist100_listesi():
 
         return {
             str(hisse).upper()
-            for hisse
-            in index.component_symbols
+            for hisse in index.component_symbols
         }
 
     except Exception as hata:
 
         print(
-            "BIST 100 alınamadı:",
+            "BIST 100 HATA:",
+            type(hata)._name_,
             str(hata)
         )
 
@@ -296,7 +297,7 @@ def rsi_hesapla(close):
 
 
 # =========================================================
-# TEK HİSSE VERİSİNİ AL
+# VERİ AL
 # =========================================================
 
 def veri_al(symbol):
@@ -328,10 +329,10 @@ def veri_al(symbol):
 
             hata_metni = str(hata)
 
-            # TradingView 429
             if (
                 "429" in hata_metni
-                or "Too Many Requests"
+                or
+                "Too Many Requests"
                 in hata_metni
             ):
 
@@ -342,10 +343,9 @@ def veri_al(symbol):
                 print(
                     f"{symbol}: 429 - "
                     f"{bekleme} sn bekleniyor "
-                    f"(deneme {deneme}/{MAX_RETRIES})"
+                    f"(deneme "
+                    f"{deneme}/{MAX_RETRIES})"
                 )
-
-                import time
 
                 time.sleep(
                     bekleme
@@ -390,10 +390,6 @@ def analiz_et(symbol):
         if df is None:
             return None
 
-        # =================================================
-        # SÜTUN KONTROLÜ
-        # =================================================
-
         gerekli = {
             "High",
             "Low",
@@ -404,9 +400,10 @@ def analiz_et(symbol):
         if not gerekli.issubset(
             df.columns
         ):
+
             print(
                 symbol,
-                "Gerekli veri sütunları eksik."
+                "Gerekli veri eksik."
             )
 
             return None
@@ -433,10 +430,7 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # ICHIMOKU BASE LINE
-        # 9 / 26 / 52 / 26
-        #
-        # Base Line = 26 periyot
+        # ICHIMOKU BASE
         # =================================================
 
         base_yuksek = (
@@ -468,21 +462,16 @@ def analiz_et(symbol):
         son = df.iloc[-1]
 
         # =================================================
-        # 1 HAFTA DEĞİŞİM
+        # HAFTALIK DEĞİŞİM
         # =================================================
 
-        if len(df) >= 6:
-
-            hafta_once = df.iloc[-6]
-
-        else:
-
-            hafta_once = df.iloc[0]
+        hafta_once = df.iloc[-6]
 
         bir_haftalik_degisim = (
             (
                 son["Close"]
-                / hafta_once["Close"]
+                /
+                hafta_once["Close"]
             )
             - 1
         ) * 100
@@ -494,7 +483,8 @@ def analiz_et(symbol):
         gunluk_degisim = (
             (
                 son["Close"]
-                / onceki["Close"]
+                /
+                onceki["Close"]
             )
             - 1
         ) * 100
@@ -516,13 +506,11 @@ def analiz_et(symbol):
         # =================================================
         # ICHIMOKU SİNYALİ
         #
-        # Önceki gün:
+        # Önceki:
         # Base >= Fiyat
         #
-        # Son gün:
+        # Son:
         # Base < Fiyat
-        #
-        # Yani Base Line fiyatı aşağı kesmiş oluyor.
         # =================================================
 
         ichimoku_sinyal = (
@@ -538,7 +526,7 @@ def analiz_et(symbol):
         # =================================================
         # EMA SİNYALİ
         #
-        # Fiyat EMA14'ün en az %3 üzerinde
+        # Fiyat EMA14'ün %3 veya daha fazla üzerinde
         # =================================================
 
         ema_sinyal = (
@@ -549,8 +537,6 @@ def analiz_et(symbol):
 
         # =================================================
         # RSI SİNYALİ
-        #
-        # RSI14 >= 50
         # =================================================
 
         rsi_sinyal = (
@@ -570,6 +556,7 @@ def analiz_et(symbol):
             and
             rsi_sinyal
         ):
+
             return None
 
         print(
@@ -586,10 +573,8 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # PİVOT KÂR AL SEVİYELERİ
-        #
-        # Stop artık EMA14.
-        # K1/K2/K3 pivot olarak kalıyor.
+        # PİVOT
+        # K1 K2 K3
         # =================================================
 
         high = float(
@@ -617,10 +602,8 @@ def analiz_et(symbol):
 
         r2 = (
             pivot
-            + (
-                high
-                - low
-            )
+            + high
+            - low
         )
 
         r3 = (
@@ -713,7 +696,7 @@ def main():
     )
 
     # =====================================================
-    # PİYASA SAATİ
+    # PİYASA KONTROLÜ
     # =====================================================
 
     if not piyasa_acik_mi():
@@ -749,7 +732,7 @@ def main():
         return
 
     # =====================================================
-    # BIST 100 + ANA PAZAR
+    # TARAMA LİSTESİ
     # =====================================================
 
     tarama_listesi = sorted(
@@ -774,7 +757,7 @@ def main():
     )
 
     # =====================================================
-    # TARAMA BAŞLANGIÇ
+    # SÜRE BAŞLANGICI
     # =====================================================
 
     baslangic_zamani = datetime.now(
@@ -794,7 +777,7 @@ def main():
     tamamlanan = 0
 
     # =====================================================
-    # HIZLI PARALEL TARAMA
+    # PARALEL TARAMA
     # =====================================================
 
     print("")
@@ -803,7 +786,8 @@ def main():
     )
 
     print(
-        f"⚡ Aynı anda {MAX_WORKERS} hisse taranacak."
+        f"⚡ Aynı anda "
+        f"{MAX_WORKERS} hisse taranacak."
     )
 
     with ThreadPoolExecutor(
@@ -871,7 +855,7 @@ def main():
                 )
 
     # =====================================================
-    # TARAMA SÜRESİ
+    # SÜRE
     # =====================================================
 
     bitis_zamani = datetime.now(
@@ -880,7 +864,8 @@ def main():
 
     sure = (
         bitis_zamani
-        - baslangic_zamani
+        -
+        baslangic_zamani
     ).total_seconds()
 
     dakika = int(
@@ -950,75 +935,71 @@ def main():
             pazar_adi = "Bilinmiyor"
 
         # =================================================
-        # GÜNLÜK İŞARET
+        # İŞARETLER
         # =================================================
 
         gunluk_isaret = (
             "🟢"
-            if sonuc[
-                "daily_change"
-            ] >= 0
+            if sonuc["daily_change"] >= 0
             else "🔴"
         )
-
-        # =================================================
-        # HAFTALIK İŞARET
-        # =================================================
 
         hafta_isaret = (
             "🟢"
-            if sonuc[
-                "weekly_change"
-            ] >= 0
+            if sonuc["weekly_change"] >= 0
             else "🔴"
         )
-
-        # =================================================
-        # FİYAT
-        # =================================================
 
         fiyat = (
             sonuc["price"]
         )
 
         # =================================================
-        # STOP = EMA14
+        # STOP YÜZDESİ
         # =================================================
 
         stop_yuzde = (
             (
                 sonuc["stop"]
-                - fiyat
+                -
+                fiyat
             )
-            / fiyat
+            /
+            fiyat
         ) * 100
 
         # =================================================
-        # KÂR AL YÜZDELERİ
+        # KÂR YÜZDELERİ
         # =================================================
 
         k1_yuzde = (
             (
                 sonuc["k1"]
-                - fiyat
+                -
+                fiyat
             )
-            / fiyat
+            /
+            fiyat
         ) * 100
 
         k2_yuzde = (
             (
                 sonuc["k2"]
-                - fiyat
+                -
+                fiyat
             )
-            / fiyat
+            /
+            fiyat
         ) * 100
 
         k3_yuzde = (
             (
                 sonuc["k3"]
-                - fiyat
+                -
+                fiyat
             )
-            / fiyat
+            /
+            fiyat
         ) * 100
 
         # =================================================
