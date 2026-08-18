@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: trading-bot
+  cancel-in-progress: false
+
 jobs:
   bot:
     runs-on: ubuntu-latest
@@ -26,56 +30,36 @@ jobs:
 
     steps:
 
-      # =================================================
-      # KODU İNDİR
-      # =================================================
-
       - name: Kodu indir
         uses: actions/checkout@v4
-
-      # =================================================
-      # PYTHON
-      # =================================================
 
       - name: Python kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # =================================================
-      # PAKETLER
-      # =================================================
-
       - name: Paketleri yukle
         run: |
           pip install -r requirements.txt
-
-      # =================================================
-      # BOT
-      # =================================================
 
       - name: Botu calistir
         run: |
           python main.py
 
-      # =================================================
-      # GÖNDERİLEN HİSSELERİ GITHUB'A KAYDET
-      # =================================================
-
       - name: Gonderilen hisseleri kaydet
         run: |
+          if [ -f gonderilen_hisseler.txt ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- gonderilen_hisseler.txt; then
-            echo "Yeni gönderilen hisse yok."
-            exit 0
+            git add gonderilen_hisseler.txt
+
+            if git diff --cached --quiet; then
+              echo "Yeni gönderilen hisse yok."
+            else
+              git commit -m "Günlük gönderilen hisseleri güncelle"
+              git push
+            fi
+          else
+            echo "gonderilen_hisseler.txt bulunamadı."
           fi
-
-          git config user.name "github-actions[bot]"
-
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add gonderilen_hisseler.txt
-
-          git commit -m "Günlük gönderilen hisseleri güncelle"
-
-          git push
