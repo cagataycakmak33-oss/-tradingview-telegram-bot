@@ -21,10 +21,9 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 
-# 429 almamak için şimdilik 4 paralel
+# 429 almamak için 4 paralel
 MAX_WORKERS = 4
 
-# 429 tekrar deneme
 MAX_RETRIES = 3
 
 
@@ -129,6 +128,17 @@ def telegram_gonder(mesaj):
 
 
 # =========================================================
+# BUGÜNÜN TARİHİ
+# =========================================================
+
+def bugunun_tarihi():
+
+    return datetime.now(
+        ZoneInfo("Europe/Istanbul")
+    ).strftime("%Y-%m-%d")
+
+
+# =========================================================
 # GÖNDERİLENLERİ OKU
 # =========================================================
 
@@ -139,7 +149,11 @@ def gonderilenleri_oku():
     ):
         return set()
 
+    bugun = bugunun_tarihi()
+
     try:
+
+        sonuc = set()
 
         with open(
             GONDERILEN_DOSYA,
@@ -147,11 +161,30 @@ def gonderilenleri_oku():
             encoding="utf-8"
         ) as dosya:
 
-            return {
-                satir.strip().upper()
-                for satir in dosya
-                if satir.strip()
-            }
+            for satir in dosya:
+
+                satir = satir.strip()
+
+                if not satir:
+                    continue
+
+                parcalar = satir.split(
+                    "|",
+                    1
+                )
+
+                if len(parcalar) != 2:
+                    continue
+
+                tarih, hisse = parcalar
+
+                if tarih == bugun:
+
+                    sonuc.add(
+                        hisse.upper()
+                    )
+
+        return sonuc
 
     except Exception as hata:
 
@@ -168,9 +201,44 @@ def gonderilenleri_oku():
 # GÖNDERİLENLERİ KAYDET
 # =========================================================
 
-def gonderilenleri_kaydet(hisseler):
+def gonderilenleri_kaydet(
+    hisseler
+):
+
+    if not hisseler:
+        return
+
+    bugun = bugunun_tarihi()
 
     try:
+
+        mevcut = []
+
+        if os.path.exists(
+            GONDERILEN_DOSYA
+        ):
+
+            with open(
+                GONDERILEN_DOSYA,
+                "r",
+                encoding="utf-8"
+            ) as dosya:
+
+                mevcut = [
+                    satir.strip()
+                    for satir in dosya
+                    if satir.strip()
+                ]
+
+        mevcut_set = set(
+            mevcut
+        )
+
+        for hisse in hisseler:
+
+            mevcut_set.add(
+                f"{bugun}|{hisse.upper()}"
+            )
 
         with open(
             GONDERILEN_DOSYA,
@@ -178,11 +246,20 @@ def gonderilenleri_kaydet(hisseler):
             encoding="utf-8"
         ) as dosya:
 
-            for hisse in sorted(hisseler):
+            for kayit in sorted(
+                mevcut_set
+            ):
 
                 dosya.write(
-                    hisse + "\n"
+                    kayit + "\n"
                 )
+
+        print(
+            "Kayıt güncellendi:",
+            ", ".join(
+                sorted(hisseler)
+            )
+        )
 
     except Exception as hata:
 
@@ -204,6 +281,7 @@ def piyasa_acik_mi():
     )
 
     if now.weekday() >= 5:
+
         return False
 
     dakika = (
@@ -242,7 +320,8 @@ def bist100_listesi():
 
         return {
             str(hisse).upper()
-            for hisse in index.component_symbols
+            for hisse
+            in index.component_symbols
         }
 
     except Exception as hata:
@@ -260,7 +339,9 @@ def bist100_listesi():
 # RSI 14
 # =========================================================
 
-def rsi_hesapla(close):
+def rsi_hesapla(
+    close
+):
 
     delta = close.diff()
 
@@ -300,7 +381,9 @@ def rsi_hesapla(close):
 # VERİ AL
 # =========================================================
 
-def veri_al(symbol):
+def veri_al(
+    symbol
+):
 
     for deneme in range(
         1,
@@ -327,10 +410,13 @@ def veri_al(symbol):
 
         except Exception as hata:
 
-            hata_metni = str(hata)
+            hata_metni = str(
+                hata
+            )
 
             if (
-                "429" in hata_metni
+                "429"
+                in hata_metni
                 or
                 "Too Many Requests"
                 in hata_metni
@@ -344,7 +430,8 @@ def veri_al(symbol):
                     f"{symbol}: 429 - "
                     f"{bekleme} sn bekleniyor "
                     f"(deneme "
-                    f"{deneme}/{MAX_RETRIES})"
+                    f"{deneme}/"
+                    f"{MAX_RETRIES})"
                 )
 
                 time.sleep(
@@ -374,7 +461,9 @@ def veri_al(symbol):
 # HİSSE ANALİZİ
 # =========================================================
 
-def analiz_et(symbol):
+def analiz_et(
+    symbol
+):
 
     try:
 
@@ -459,6 +548,7 @@ def analiz_et(symbol):
         # =================================================
 
         onceki = df.iloc[-2]
+
         son = df.iloc[-1]
 
         # =================================================
@@ -505,12 +595,6 @@ def analiz_et(symbol):
 
         # =================================================
         # ICHIMOKU SİNYALİ
-        #
-        # Önceki:
-        # Base >= Fiyat
-        #
-        # Son:
-        # Base < Fiyat
         # =================================================
 
         ichimoku_sinyal = (
@@ -525,14 +609,13 @@ def analiz_et(symbol):
 
         # =================================================
         # EMA SİNYALİ
-        #
-        # Fiyat EMA14'ün %3 veya daha fazla üzerinde
         # =================================================
 
         ema_sinyal = (
             son["Close"]
             >=
-            son["EMA14"] * 1.03
+            son["EMA14"]
+            * 1.03
         )
 
         # =================================================
@@ -565,7 +648,7 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # STOP = EMA14
+        # STOP
         # =================================================
 
         stop = float(
@@ -574,7 +657,6 @@ def analiz_et(symbol):
 
         # =================================================
         # PİVOT
-        # K1 K2 K3
         # =================================================
 
         high = float(
@@ -696,7 +778,7 @@ def main():
     )
 
     # =====================================================
-    # PİYASA KONTROLÜ
+    # PİYASA
     # =====================================================
 
     if not piyasa_acik_mi():
@@ -757,7 +839,7 @@ def main():
     )
 
     # =====================================================
-    # SÜRE BAŞLANGICI
+    # SÜRE
     # =====================================================
 
     baslangic_zamani = datetime.now(
@@ -765,11 +847,16 @@ def main():
     )
 
     # =====================================================
-    # GÖNDERİLENLER
+    # BUGÜN GÖNDERİLENLER
     # =====================================================
 
     gonderilenler = (
         gonderilenleri_oku()
+    )
+
+    print(
+        "Bugün daha önce gönderilen:",
+        len(gonderilenler)
     )
 
     bulunan = []
@@ -795,11 +882,15 @@ def main():
     ) as executor:
 
         gelecekler = {
+
             executor.submit(
                 analiz_et,
                 symbol
             ): symbol
-            for symbol in tarama_listesi
+
+            for symbol
+            in tarama_listesi
+
         }
 
         for gelecek in as_completed(
@@ -807,7 +898,9 @@ def main():
         ):
 
             symbol = (
-                gelecekler[gelecek]
+                gelecekler[
+                    gelecek
+                ]
             )
 
             try:
@@ -820,17 +913,25 @@ def main():
 
                 if sonuc:
 
+                    # =====================================
+                    # AYNI GÜN TEKRAR GÖNDERME
+                    # =====================================
+
                     if (
                         symbol
-                        not in gonderilenler
+                        not in
+                        gonderilenler
                     ):
 
                         bulunan.append(
                             sonuc
                         )
 
-                        gonderilenler.add(
-                            symbol
+                    else:
+
+                        print(
+                            f"⏭️ {symbol} "
+                            f"bugün zaten gönderildi."
                         )
 
             except Exception as hata:
@@ -877,6 +978,7 @@ def main():
     )
 
     print("")
+
     print(
         f"⏱️ Tarama süresi: "
         f"{dakika} dakika "
@@ -885,24 +987,19 @@ def main():
     )
 
     # =====================================================
-    # GÖNDERİLENLERİ KAYDET
-    # =====================================================
-
-    gonderilenleri_kaydet(
-        gonderilenler
-    )
-
-    # =====================================================
     # SONUÇ
     # =====================================================
 
     print("")
+
     print(
         "===================================="
     )
+
     print(
         "TARAMA TAMAMLANDI"
     )
+
     print(
         "===================================="
     )
@@ -915,6 +1012,8 @@ def main():
     # =====================================================
     # TELEGRAM
     # =====================================================
+
+    basarili_gonderimler = set()
 
     for sonuc in bulunan:
 
@@ -1056,9 +1155,52 @@ def main():
             "📌 Taramaya yeni girdi."
         )
 
-        telegram_gonder(
+        # =================================================
+        # TELEGRAM GÖNDER
+        # =================================================
+
+        basarili = telegram_gonder(
             mesaj
         )
+
+        if basarili:
+
+            basarili_gonderimler.add(
+                symbol
+            )
+
+            print(
+                f"✅ {symbol} "
+                f"Telegram'a gönderildi."
+            )
+
+        else:
+
+            print(
+                f"❌ {symbol} "
+                f"Telegram'a gönderilemedi."
+            )
+
+    # =====================================================
+    # SADECE BAŞARILI GÖNDERİMLERİ KAYDET
+    # =====================================================
+
+    if basarili_gonderimler:
+
+        gonderilenleri_kaydet(
+            gonderilenler
+            |
+            basarili_gonderimler
+        )
+
+    print("")
+
+    print(
+        "Bugün yeni gönderilen:",
+        len(
+            basarili_gonderimler
+        )
+    )
 
 
 # =========================================================
@@ -1066,4 +1208,5 @@ def main():
 # =========================================================
 
 if __name__ == "__main__":
+
     main()
