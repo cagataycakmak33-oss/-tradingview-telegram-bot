@@ -2,15 +2,15 @@ name: Trading Bot Calistir
 
 on:
   schedule:
-    - cron: "50,55 9 * * 1-5"
+    # Sabah döngüsünü başlat
+    - cron: "50 9 * * 1-5"
       timezone: "Europe/Istanbul"
 
-    - cron: "*/5 10-17 * * 1-5"
+    # Öğleden sonra ikinci döngüyü başlat
+    - cron: "0 14 * * 1-5"
       timezone: "Europe/Istanbul"
 
-    - cron: "0,5 18 * * 1-5"
-      timezone: "Europe/Istanbul"
-
+  # İstenirse GitHub'dan elle çalıştır
   workflow_dispatch:
 
 permissions:
@@ -42,13 +42,68 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Botu calistir
+      - name: Botu 5 dakikada bir calistir
         run: |
-          python main.py
+          set -e
+
+          echo "===================================="
+          echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
+          echo "===================================="
+
+          BASLANGIC=$(date +%s)
+
+          while true; do
+
+            SIMDI=$(date +%s)
+            SAAT=$(TZ=Europe/Istanbul date +%H:%M)
+
+            echo ""
+            echo "===================================="
+            echo "Yeni tarama: $SAAT"
+            echo "===================================="
+
+            # Piyasa saatleri içinde botu çalıştır
+            python main.py
+
+            BITIS=$(date +%s)
+            GECEN=$((BITIS - SIMDI))
+
+            echo ""
+            echo "Tarama süresi: ${GECEN} saniye"
+
+            # Türkiye saatiyle mevcut saat
+            SAAT_NUM=$(TZ=Europe/Istanbul date +%H)
+            DAKIKA_NUM=$(TZ=Europe/Istanbul date +%M)
+
+            TOPLAM_DAKIKA=$((10#$SAAT_NUM * 60 + 10#$DAKIKA_NUM))
+
+            # 18:00 veya sonrasıysa döngüyü bitir
+            if [ "$TOPLAM_DAKIKA" -ge 1080 ]; then
+              echo "18:00 oldu. Bugünkü tarama tamamlandı."
+              break
+            fi
+
+            # Bir sonraki 5 dakikalık zamana kadar bekle
+            KALAN=$((300 - GECEN))
+
+            if [ "$KALAN" -gt 0 ]; then
+              echo "Bir sonraki tarama için ${KALAN} saniye bekleniyor..."
+              sleep "$KALAN"
+            else
+              echo "Tarama 5 dakikadan uzun sürdü. Yeni tarama hemen başlıyor."
+            fi
+
+          done
+
+          echo ""
+          echo "===================================="
+          echo "TARAMA DONGUSU TAMAMLANDI"
+          echo "===================================="
 
       - name: Gonderilen hisseleri kaydet
         run: |
           if [ -f gonderilen_hisseler.txt ]; then
+
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -60,6 +115,7 @@ jobs:
               git commit -m "Günlük gönderilen hisseleri güncelle"
               git push
             fi
+
           else
             echo "gonderilen_hisseler.txt bulunamadı."
           fi
