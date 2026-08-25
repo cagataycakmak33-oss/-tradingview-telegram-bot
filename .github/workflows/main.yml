@@ -1,16 +1,12 @@
 name: Trading Bot Calistir
 
 on:
+  # Sabah 09:50'de bir kez başlat
   schedule:
-    # Sabah döngüsünü başlat
     - cron: "50 9 * * 1-5"
       timezone: "Europe/Istanbul"
 
-    # Öğleden sonra ikinci döngüyü başlat
-    - cron: "0 14 * * 1-5"
-      timezone: "Europe/Istanbul"
-
-  # İstenirse GitHub'dan elle çalıştır
+  # Elle çalıştırma seçeneği
   workflow_dispatch:
 
 permissions:
@@ -50,47 +46,61 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "===================================="
 
-          BASLANGIC=$(date +%s)
-
           while true; do
 
-            SIMDI=$(date +%s)
-            SAAT=$(TZ=Europe/Istanbul date +%H:%M)
-
-            echo ""
-            echo "===================================="
-            echo "Yeni tarama: $SAAT"
-            echo "===================================="
-
-            # Piyasa saatleri içinde botu çalıştır
-            python main.py
-
-            BITIS=$(date +%s)
-            GECEN=$((BITIS - SIMDI))
-
-            echo ""
-            echo "Tarama süresi: ${GECEN} saniye"
-
-            # Türkiye saatiyle mevcut saat
             SAAT_NUM=$(TZ=Europe/Istanbul date +%H)
             DAKIKA_NUM=$(TZ=Europe/Istanbul date +%M)
 
             TOPLAM_DAKIKA=$((10#$SAAT_NUM * 60 + 10#$DAKIKA_NUM))
 
-            # 18:00 veya sonrasıysa döngüyü bitir
+            echo ""
+            echo "Türkiye saati: ${SAAT_NUM}:${DAKIKA_NUM}"
+
+            # 09:50'den önceyse bekle
+            if [ "$TOPLAM_DAKIKA" -lt 590 ]; then
+              KALAN=$((590 - TOPLAM_DAKIKA))
+              echo "09:50 bekleniyor..."
+              echo "${KALAN} dakika bekleniyor."
+              sleep 60
+              continue
+            fi
+
+            # 18:00 veya sonrasıysa bitir
             if [ "$TOPLAM_DAKIKA" -ge 1080 ]; then
               echo "18:00 oldu. Bugünkü tarama tamamlandı."
               break
             fi
 
-            # Bir sonraki 5 dakikalık zamana kadar bekle
-            KALAN=$((300 - GECEN))
+            echo ""
+            echo "===================================="
+            echo "Yeni tarama: ${SAAT_NUM}:${DAKIKA_NUM}"
+            echo "===================================="
 
-            if [ "$KALAN" -gt 0 ]; then
-              echo "Bir sonraki tarama için ${KALAN} saniye bekleniyor..."
-              sleep "$KALAN"
+            BASLANGIC=$(date +%s)
+
+            python main.py
+
+            BITIS=$(date +%s)
+            GECEN=$((BITIS - BASLANGIC))
+
+            echo ""
+            echo "Tarama süresi: ${GECEN} saniye"
+
+            # Bir sonraki 5 dakikalık zamana kadar bekle
+            SIMDI_DAKIKA=$((10#$DAKIKA_NUM))
+            SONRAKI_DAKIKA=$((5 - SIMDI_DAKIKA % 5))
+
+            if [ "$SONRAKI_DAKIKA" -eq 5 ]; then
+              SONRAKI_DAKIKA=0
+            fi
+
+            BEKLEME=$((SONRAKI_DAKIKA * 60 - GECEN))
+
+            if [ "$BEKLEME" -gt 0 ]; then
+              echo "Bir sonraki 5 dakikalık taramaya kadar ${BEKLEME} saniye bekleniyor..."
+              sleep "$BEKLEME"
             else
-              echo "Tarama 5 dakikadan uzun sürdü. Yeni tarama hemen başlıyor."
+              echo "Tarama uzun sürdü. Yeni tarama hemen başlıyor."
             fi
 
           done
