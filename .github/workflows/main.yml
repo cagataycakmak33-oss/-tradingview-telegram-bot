@@ -49,30 +49,30 @@ jobs:
 
           while true; do
 
-            SAAT_NUM=$(TZ=Europe/Istanbul date +%H)
-            DAKIKA_NUM=$(TZ=Europe/Istanbul date +%M)
+            HOUR=$(TZ=Europe/Istanbul date +%H)
+            MINUTE=$(TZ=Europe/Istanbul date +%M)
 
-            TOPLAM_DAKIKA=$((10#$SAAT_NUM * 60 + 10#$DAKIKA_NUM))
+            TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
             echo ""
-            echo "Türkiye saati: ${SAAT_NUM}:${DAKIKA_NUM}"
+            echo "Turkiye saati: ${HOUR}:${MINUTE}"
 
-            # 09:50'den önceyse bekle
-            if [ "$TOPLAM_DAKIKA" -lt 590 ]; then
+            # 09:50'den onceyse 09:50'yi bekle
+            if [ "$TOTAL_MINUTES" -lt 590 ]; then
               echo "09:50 bekleniyor..."
               sleep 60
               continue
             fi
 
-            # 18:00 veya sonrasıysa bitir
-            if [ "$TOPLAM_DAKIKA" -ge 1080 ]; then
-              echo "18:00 oldu. Bugünkü tarama tamamlandı."
+            # 18:00 veya sonrasiysa bitir
+            if [ "$TOTAL_MINUTES" -ge 1080 ]; then
+              echo "18:00 oldu. Bugunku tarama tamamlandi."
               break
             fi
 
             echo ""
             echo "===================================="
-            echo "Yeni tarama: ${SAAT_NUM}:${DAKIKA_NUM}"
+            echo "Yeni tarama: ${HOUR}:${MINUTE}"
             echo "===================================="
 
             BASLANGIC=$(date +%s)
@@ -83,29 +83,32 @@ jobs:
             GECEN=$((BITIS - BASLANGIC))
 
             echo ""
-            echo "Tarama süresi: ${GECEN} saniye"
+            echo "Tarama suresi: ${GECEN} saniye"
 
-            # Bir sonraki 5 dakikalık zamana kadar bekle
-            DAKIKA=$(TZ=Europe/Istanbul date +%M)
-            SANİYE=$(TZ=Europe/Istanbul date +%S)
+            # Tarama bittikten sonraki mevcut dakika
+            CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
 
-            DAKIKA_NUMERIC=$((10#$DAKIKA))
-            SANİYE_NUMERIC=$((10#$SANİYE))
+            CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
+            CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
 
-            SONRAKI=$((5 - (DAKIKA_NUMERIC % 5)))
+            # Bir sonraki 5 dakikalik dakikayi bul
+            NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
 
-            if [ "$SONRAKI" -eq 5 ]; then
-              SONRAKI=0
+            if [ "$NEXT_WAIT" -eq 5 ]; then
+              NEXT_WAIT=0
             fi
 
-            BEKLEME=$((SONRAKI * 60 - SANİYE_NUMERIC))
+            WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
 
-            if [ "$BEKLEME" -gt 0 ]; then
-              echo "Bir sonraki tarama için ${BEKLEME} saniye bekleniyor..."
-              sleep "$BEKLEME"
-            else
-              echo "Yeni tarama hemen başlıyor."
+            # Eger zaten 5 dakikalik sinira cok yakinsa
+            if [ "$WAIT_SECONDS" -le 0 ]; then
+              WAIT_SECONDS=5
             fi
+
+            echo "Bir sonraki tarama icin ${WAIT_SECONDS} saniye bekleniyor..."
+
+            sleep "$WAIT_SECONDS"
 
           done
 
@@ -124,12 +127,12 @@ jobs:
             git add gonderilen_hisseler.txt
 
             if git diff --cached --quiet; then
-              echo "Yeni gönderilen hisse yok."
+              echo "Yeni gonderilen hisse yok."
             else
-              git commit -m "Günlük gönderilen hisseleri güncelle"
+              git commit -m "Gunluk gonderilen hisseleri guncelle"
               git push
             fi
 
           else
-            echo "gonderilen_hisseler.txt bulunamadı."
+            echo "gonderilen_hisseler.txt bulunamadi."
           fi
