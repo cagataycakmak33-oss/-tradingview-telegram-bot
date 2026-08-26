@@ -1,12 +1,13 @@
 name: Trading Bot Calistir
 
 on:
-  # Sabah 09:50'de bir kez başlat
   schedule:
     - cron: "50 9 * * 1-5"
       timezone: "Europe/Istanbul"
 
-  # Elle çalıştırma seçeneği
+    - cron: "0 14 * * 1-5"
+      timezone: "Europe/Istanbul"
+
   workflow_dispatch:
 
 permissions:
@@ -58,9 +59,7 @@ jobs:
 
             # 09:50'den önceyse bekle
             if [ "$TOPLAM_DAKIKA" -lt 590 ]; then
-              KALAN=$((590 - TOPLAM_DAKIKA))
               echo "09:50 bekleniyor..."
-              echo "${KALAN} dakika bekleniyor."
               sleep 60
               continue
             fi
@@ -87,20 +86,25 @@ jobs:
             echo "Tarama süresi: ${GECEN} saniye"
 
             # Bir sonraki 5 dakikalık zamana kadar bekle
-            SIMDI_DAKIKA=$((10#$DAKIKA_NUM))
-            SONRAKI_DAKIKA=$((5 - SIMDI_DAKIKA % 5))
+            DAKIKA=$(TZ=Europe/Istanbul date +%M)
+            SANİYE=$(TZ=Europe/Istanbul date +%S)
 
-            if [ "$SONRAKI_DAKIKA" -eq 5 ]; then
-              SONRAKI_DAKIKA=0
+            DAKIKA_NUMERIC=$((10#$DAKIKA))
+            SANİYE_NUMERIC=$((10#$SANİYE))
+
+            SONRAKI=$((5 - (DAKIKA_NUMERIC % 5)))
+
+            if [ "$SONRAKI" -eq 5 ]; then
+              SONRAKI=0
             fi
 
-            BEKLEME=$((SONRAKI_DAKIKA * 60 - GECEN))
+            BEKLEME=$((SONRAKI * 60 - SANİYE_NUMERIC))
 
             if [ "$BEKLEME" -gt 0 ]; then
-              echo "Bir sonraki 5 dakikalık taramaya kadar ${BEKLEME} saniye bekleniyor..."
+              echo "Bir sonraki tarama için ${BEKLEME} saniye bekleniyor..."
               sleep "$BEKLEME"
             else
-              echo "Tarama uzun sürdü. Yeni tarama hemen başlıyor."
+              echo "Yeni tarama hemen başlıyor."
             fi
 
           done
