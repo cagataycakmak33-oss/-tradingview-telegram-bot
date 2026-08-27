@@ -21,7 +21,7 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 ADX_PERIOD = 14
-HACIM_ORTALAMA_PERIOD = 20
+VOLUME_AVG_PERIOD = 20
 
 MAX_WORKERS = 4
 MAX_RETRIES = 3
@@ -149,7 +149,9 @@ def gonderilenleri_oku():
 # GÖNDERİLENLERİ KAYDET
 # =========================================================
 
-def gonderilenleri_kaydet(hisseler):
+def gonderilenleri_kaydet(
+    hisseler
+):
 
     bugun = datetime.now(
         ISTANBUL
@@ -174,7 +176,9 @@ def gonderilenleri_kaydet(hisseler):
                     satir = satir.strip()
 
                     if satir:
-                        mevcut.append(satir)
+                        mevcut.append(
+                            satir
+                        )
 
         bugunku = {
             satir
@@ -234,7 +238,9 @@ def gonderilenleri_kaydet(hisseler):
 # TELEGRAM
 # =========================================================
 
-def telegram_gonder(mesaj):
+def telegram_gonder(
+    mesaj
+):
 
     url = (
         f"https://api.telegram.org/"
@@ -328,7 +334,9 @@ def bist100_listesi():
 # RSI
 # =========================================================
 
-def rsi_hesapla(close):
+def rsi_hesapla(
+    close
+):
 
     delta = close.diff()
 
@@ -368,13 +376,17 @@ def rsi_hesapla(close):
 # ADX
 # =========================================================
 
-def adx_hesapla(df):
+def adx_hesapla(
+    df
+):
 
     high = df["High"]
     low = df["Low"]
     close = df["Close"]
 
-    onceki_close = close.shift(1)
+    onceki_close = close.shift(
+        1
+    )
 
     yukari_hareket = high.diff()
 
@@ -473,7 +485,9 @@ def adx_hesapla(df):
 # ADX RENK
 # =========================================================
 
-def adx_gosterge(adx):
+def adx_gosterge(
+    adx
+):
 
     if adx >= 25:
         return "🟢"
@@ -488,7 +502,9 @@ def adx_gosterge(adx):
 # VERİ AL
 # =========================================================
 
-def veri_al(symbol):
+def veri_al(
+    symbol
+):
 
     for deneme in range(
         1,
@@ -554,10 +570,13 @@ def veri_al(symbol):
 
 
 # =========================================================
-# GERÇEK DESTEK / DİRENÇ BULMA
+# DESTEK / DİRENÇ BUL
 # =========================================================
 
-def destek_direnc_bul(df, fiyat):
+def destek_direnc_bul(
+    df,
+    fiyat
+):
 
     high = df["High"].astype(
         float
@@ -617,7 +636,9 @@ def destek_direnc_bul(df, fiyat):
                 float(mevcut_low)
             )
 
-    def seviyeleri_temizle(seviyeler):
+    def seviyeleri_temizle(
+        seviyeler
+    ):
 
         if not seviyeler:
             return []
@@ -633,6 +654,10 @@ def destek_direnc_bul(df, fiyat):
         for seviye in seviyeler[1:]:
 
             son_seviye = temiz[-1]
+
+            if son_seviye == 0:
+                temiz.append(seviye)
+                continue
 
             fark = (
                 abs(
@@ -716,10 +741,262 @@ def destek_direnc_bul(df, fiyat):
 
 
 # =========================================================
+# YÜZDE MESAFE
+# =========================================================
+
+def yuzde_mesafe(
+    seviye,
+    fiyat
+):
+
+    if seviye is None:
+        return None
+
+    if fiyat == 0:
+        return None
+
+    return (
+        (
+            seviye
+            - fiyat
+        )
+        / fiyat
+    ) * 100
+
+
+# =========================================================
+# SİNYAL GÜCÜ
+# =========================================================
+
+def sinyal_gucu_hesapla(
+    fiyat,
+    ema14,
+    ema_onceki,
+    rsi14,
+    rsi_onceki,
+    adx14,
+    hacim,
+    hacim_ort20,
+    k1
+):
+
+    puan = 0.0
+
+    # -----------------------------------------------------
+    # 1. BASE yukarı kesişimi
+    # Bu şart zaten filtre olduğu için 20 puan.
+    # -----------------------------------------------------
+
+    puan += 20
+
+
+    # -----------------------------------------------------
+    # 2. Fiyat EMA14 üzerinde ne kadar güçlü?
+    # %3 = düşük puan
+    # %8 ve üzeri = maksimum
+    # -----------------------------------------------------
+
+    if ema14 > 0:
+
+        ema_mesafe = (
+            (fiyat / ema14) - 1
+        ) * 100
+
+        ema_puan = min(
+            15,
+            max(
+                0,
+                (ema_mesafe - 3) / 5 * 15
+            )
+        )
+
+        puan += ema_puan
+
+
+    # -----------------------------------------------------
+    # 3. EMA14 yükselişi
+    # -----------------------------------------------------
+
+    if ema_onceki > 0:
+
+        ema_egim = (
+            (
+                ema14
+                / ema_onceki
+            ) - 1
+        ) * 100
+
+        ema_puan = min(
+            15,
+            max(
+                0,
+                ema_egim / 1.0 * 15
+            )
+        )
+
+        puan += ema_puan
+
+
+    # -----------------------------------------------------
+    # 4. RSI gücü
+    # 50 = düşük
+    # 65+ = maksimum
+    # -----------------------------------------------------
+
+    rsi_puan = min(
+        10,
+        max(
+            0,
+            (rsi14 - 50) / 15 * 10
+        )
+    )
+
+    puan += rsi_puan
+
+
+    # -----------------------------------------------------
+    # 5. RSI yükselişi
+    # -----------------------------------------------------
+
+    rsi_fark = (
+        rsi14
+        - rsi_onceki
+    )
+
+    rsi_puan = min(
+        10,
+        max(
+            0,
+            rsi_fark / 5 * 10
+        )
+    )
+
+    puan += rsi_puan
+
+
+    # -----------------------------------------------------
+    # 6. Hacim / 20 günlük ortalama
+    # Filtre DEĞİL.
+    # Sadece puana katkı sağlar.
+    # -----------------------------------------------------
+
+    if (
+        hacim_ort20 > 0
+        and hacim > 0
+    ):
+
+        hacim_orani = (
+            hacim
+            / hacim_ort20
+        )
+
+        hacim_puan = min(
+            15,
+            max(
+                0,
+                (hacim_orani - 0.8)
+                / 1.2
+                * 15
+            )
+        )
+
+        puan += hacim_puan
+
+
+    # -----------------------------------------------------
+    # 7. ADX
+    # 15 = düşük
+    # 30+ = maksimum
+    # -----------------------------------------------------
+
+    adx_puan = min(
+        10,
+        max(
+            0,
+            (adx14 - 15)
+            / 15
+            * 10
+        )
+    )
+
+    puan += adx_puan
+
+
+    # -----------------------------------------------------
+    # 8. K1 mesafesi
+    # K1 girişten yeterince yukarıdaysa puan artar.
+    # -----------------------------------------------------
+
+    if (
+        k1 is not None
+        and fiyat > 0
+    ):
+
+        k1_mesafe = (
+            (
+                k1
+                / fiyat
+            ) - 1
+        ) * 100
+
+        k1_puan = min(
+            5,
+            max(
+                0,
+                k1_mesafe / 10 * 5
+            )
+        )
+
+        puan += k1_puan
+
+
+    # -----------------------------------------------------
+    # 0-100 aralığında tut
+    # -----------------------------------------------------
+
+    puan = max(
+        0,
+        min(
+            100,
+            puan
+        )
+    )
+
+    return round(
+        puan
+    )
+
+
+# =========================================================
+# SİNYAL GÜCÜ YAZISI
+# =========================================================
+
+def sinyal_gucu_gosterge(
+    puan
+):
+
+    if puan >= 80:
+        return "🟢 ÇOK GÜÇLÜ"
+
+    if puan >= 70:
+        return "🟢 GÜÇLÜ"
+
+    if puan >= 60:
+        return "🟡 ORTA"
+
+    if puan >= 50:
+        return "🟠 ZAYIF"
+
+    return "🔴 ÇOK ZAYIF"
+
+
+# =========================================================
 # ANALİZ
 # =========================================================
 
-def analiz_et(symbol):
+def analiz_et(
+    symbol
+):
 
     try:
 
@@ -747,6 +1024,7 @@ def analiz_et(symbol):
         ):
             return None
 
+
         # -------------------------------------------------
         # EMA14
         # -------------------------------------------------
@@ -758,6 +1036,7 @@ def analiz_et(symbol):
             ).mean()
         )
 
+
         # -------------------------------------------------
         # RSI14
         # -------------------------------------------------
@@ -768,6 +1047,7 @@ def analiz_et(symbol):
             )
         )
 
+
         # -------------------------------------------------
         # ADX14
         # -------------------------------------------------
@@ -777,6 +1057,7 @@ def analiz_et(symbol):
                 df
             )
         )
+
 
         # -------------------------------------------------
         # ICHIMOKU BASE
@@ -803,22 +1084,23 @@ def analiz_et(symbol):
             + base_dusuk
         ) / 2
 
+
         # -------------------------------------------------
         # 20 GÜNLÜK ORTALAMA HACİM
-        #
-        # Mevcut gün dahil edilmiyor.
-        # Önceki 20 işlem gününün ortalaması.
-        # BU BİR FİLTRE DEĞİL.
         # -------------------------------------------------
 
-        df["HACIM_ORT20"] = (
+        df["VolumeAvg20"] = (
             df["Volume"]
-            .shift(1)
             .rolling(
-                HACIM_ORTALAMA_PERIOD
+                VOLUME_AVG_PERIOD
             )
             .mean()
         )
+
+
+        # -------------------------------------------------
+        # SON VERİLER
+        # -------------------------------------------------
 
         onceki = df.iloc[
             -2
@@ -831,6 +1113,7 @@ def analiz_et(symbol):
         hafta_once = df.iloc[
             -6
         ]
+
 
         # -------------------------------------------------
         # DEĞİŞİMLER
@@ -852,6 +1135,11 @@ def analiz_et(symbol):
             - 1
         ) * 100
 
+
+        # -------------------------------------------------
+        # HACİM
+        # -------------------------------------------------
+
         try:
 
             hacim = float(
@@ -862,31 +1150,21 @@ def analiz_et(symbol):
 
             hacim = 0.0
 
+
         try:
 
             hacim_ort20 = float(
-                son["HACIM_ORT20"]
+                son["VolumeAvg20"]
             )
 
         except Exception:
 
             hacim_ort20 = 0.0
 
-        if (
-            hacim_ort20 > 0
-        ):
 
-            hacim_yuzde = (
-                (
-                    hacim
-                    / hacim_ort20
-                )
-                - 1
-            ) * 100
-
-        else:
-
-            hacim_yuzde = 0.0
+        # -------------------------------------------------
+        # ADX
+        # -------------------------------------------------
 
         try:
 
@@ -898,11 +1176,13 @@ def analiz_et(symbol):
 
             adx = 0.0
 
+
         # =================================================
-        # TARAMA KRİTERLERİ
+        # ANA TARAMA ŞARTLARI
         # =================================================
 
         # 1️⃣ BASE yukarı kesildi
+
         ichimoku_sinyal = (
             onceki["BASE"]
             >= onceki["Close"]
@@ -911,35 +1191,42 @@ def analiz_et(symbol):
             < son["Close"]
         )
 
+
         # 2️⃣ Fiyat EMA14'ün en az %3 üzerinde
+
         fiyat_ema_sinyal = (
             son["Close"]
             >= son["EMA14"] * 1.03
         )
 
+
         # 3️⃣ EMA14 yükseliyor
+
         ema_yukseliyor = (
             son["EMA14"]
             > onceki["EMA14"]
         )
 
-        # 4️⃣ RSI14 50'nin üzerinde
+
+        # 4️⃣ RSI 50'nin üzerinde
+
         rsi_50_ustu = (
             son["RSI14"]
             > 50
         )
 
-        # 5️⃣ RSI14 yükseliyor
+
+        # 5️⃣ RSI yükseliyor
+
         rsi_yukseliyor = (
             son["RSI14"]
             > onceki["RSI14"]
         )
 
-        # -------------------------------------------------
-        # SADECE 5 KRİTER FİLTRE
-        #
-        # HACİM FİLTRE DEĞİL.
-        # -------------------------------------------------
+
+        # =================================================
+        # TÜM ANA ŞARTLAR SAĞLANMALI
+        # =================================================
 
         if not (
             ichimoku_sinyal
@@ -951,12 +1238,30 @@ def analiz_et(symbol):
 
             return None
 
+
         fiyat = float(
             son["Close"]
         )
 
+        ema14 = float(
+            son["EMA14"]
+        )
+
+        ema_onceki = float(
+            onceki["EMA14"]
+        )
+
+        rsi14 = float(
+            son["RSI14"]
+        )
+
+        rsi_onceki = float(
+            onceki["RSI14"]
+        )
+
+
         # =================================================
-        # GERÇEK DESTEK / DİRENÇ
+        # DESTEK / DİRENÇ
         # =================================================
 
         (
@@ -969,6 +1274,11 @@ def analiz_et(symbol):
             fiyat
         )
 
+
+        # -------------------------------------------------
+        # S1 yoksa sinyal gönderme
+        # -------------------------------------------------
+
         if s1 is None:
 
             print(
@@ -977,6 +1287,11 @@ def analiz_et(symbol):
             )
 
             return None
+
+
+        # -------------------------------------------------
+        # K1 yoksa sinyal gönderme
+        # -------------------------------------------------
 
         if k1 is None:
 
@@ -987,13 +1302,58 @@ def analiz_et(symbol):
 
             return None
 
+
         # =================================================
         # STOP
         # =================================================
 
+        # S1'in %0.5 altında güvenlik payı
+
         stop = (
             s1 * 0.995
         )
+
+
+        # =================================================
+        # SİNYAL GÜCÜ
+        # =================================================
+
+        sinyal_puani = (
+            sinyal_gucu_hesapla(
+                fiyat=fiyat,
+                ema14=ema14,
+                ema_onceki=ema_onceki,
+                rsi14=rsi14,
+                rsi_onceki=rsi_onceki,
+                adx14=adx,
+                hacim=hacim,
+                hacim_ort20=hacim_ort20,
+                k1=k1
+            )
+        )
+
+
+        # =================================================
+        # HACİM YÜZDE FARKI
+        # =================================================
+
+        if hacim_ort20 > 0:
+
+            hacim_farki = (
+                (
+                    hacim
+                    / hacim_ort20
+                ) - 1
+            ) * 100
+
+        else:
+
+            hacim_farki = 0.0
+
+
+        # =================================================
+        # SONUÇ
+        # =================================================
 
         return {
 
@@ -1011,21 +1371,15 @@ def analiz_et(symbol):
 
             "volume": hacim,
 
-            "volume_avg20": (
-                hacim_ort20
+            "volume_avg20": hacim_ort20,
+
+            "volume_difference": float(
+                hacim_farki
             ),
 
-            "volume_percent": (
-                hacim_yuzde
-            ),
+            "ema14": ema14,
 
-            "ema14": float(
-                son["EMA14"]
-            ),
-
-            "rsi14": float(
-                son["RSI14"]
-            ),
+            "rsi14": rsi14,
 
             "adx14": adx,
 
@@ -1053,8 +1407,13 @@ def analiz_et(symbol):
                 float(k3)
                 if k3 is not None
                 else None
+            ),
+
+            "signal_score": int(
+                sinyal_puani
             )
         }
+
 
     except Exception as hata:
 
@@ -1066,27 +1425,6 @@ def analiz_et(symbol):
         )
 
         return None
-
-
-# =========================================================
-# YÜZDE MESAFE
-# =========================================================
-
-def yuzde_mesafe(
-    seviye,
-    fiyat
-):
-
-    if seviye is None:
-        return None
-
-    return (
-        (
-            seviye
-            - fiyat
-        )
-        / fiyat
-    ) * 100
 
 
 # =========================================================
@@ -1109,6 +1447,7 @@ def main():
         "===================================="
     )
 
+
     now = datetime.now(
         ISTANBUL
     )
@@ -1120,6 +1459,7 @@ def main():
         )
     )
 
+
     if not piyasa_acik_mi():
 
         print(
@@ -1128,13 +1468,16 @@ def main():
 
         return
 
+
     print(
         "BIST 100 listesi aliniyor..."
     )
 
+
     bist100 = (
         bist100_listesi()
     )
+
 
     if not bist100:
 
@@ -1144,37 +1487,45 @@ def main():
 
         return
 
+
     tarama_listesi = sorted(
         bist100 | ANA_PAZAR
     )
+
 
     print(
         "BIST 100 hisse sayisi:",
         len(bist100)
     )
 
+
     print(
         "Ana Pazar hisse sayisi:",
         len(ANA_PAZAR)
     )
+
 
     print(
         "Toplam benzersiz taranacak hisse:",
         len(tarama_listesi)
     )
 
+
     gonderilenler = (
         gonderilenleri_oku()
     )
+
 
     print(
         "Bugün daha önce gönderilen:",
         len(gonderilenler)
     )
 
+
     bulunan = []
 
     tamamlanan = 0
+
 
     baslangic_zamani = (
         datetime.now(
@@ -1182,16 +1533,19 @@ def main():
         )
     )
 
+
     print("")
 
     print(
         "⚡ Hızlı tarama başlıyor..."
     )
 
+
     print(
         f"⚡ Aynı anda "
         f"{MAX_WORKERS} hisse taranacak."
     )
+
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
@@ -1208,6 +1562,7 @@ def main():
             in tarama_listesi
         }
 
+
         for gelecek in as_completed(
             gelecekler
         ):
@@ -1218,6 +1573,7 @@ def main():
                 ]
             )
 
+
             try:
 
                 sonuc = (
@@ -1225,6 +1581,7 @@ def main():
                 )
 
                 tamamlanan += 1
+
 
                 if sonuc:
 
@@ -1248,6 +1605,7 @@ def main():
                             symbol
                         )
 
+
             except Exception as hata:
 
                 tamamlanan += 1
@@ -1259,6 +1617,7 @@ def main():
                     str(hata)
                 )
 
+
             if tamamlanan % 25 == 0:
 
                 print(
@@ -1267,16 +1626,19 @@ def main():
                     f"{len(tarama_listesi)}"
                 )
 
+
     bitis_zamani = (
         datetime.now(
             ISTANBUL
         )
     )
 
+
     sure = (
         bitis_zamani
         - baslangic_zamani
     ).total_seconds()
+
 
     dakika = int(
         sure // 60
@@ -1286,6 +1648,7 @@ def main():
         sure % 60
     )
 
+
     print("")
 
     print(
@@ -1293,6 +1656,7 @@ def main():
         f"{dakika} dakika "
         f"{saniye} saniye"
     )
+
 
     print("")
 
@@ -1308,10 +1672,12 @@ def main():
         "===================================="
     )
 
+
     print(
         "Yeni bulunan hisse:",
         len(bulunan)
     )
+
 
     # =====================================================
     # TELEGRAM
@@ -1319,27 +1685,18 @@ def main():
 
     basariyla_gonderilenler = set()
 
+
     for sonuc in bulunan:
 
         symbol = (
             sonuc["symbol"]
         )
 
-        gunluk_isaret = (
-            "🟢"
-            if sonuc["daily_change"] >= 0
-            else "🔴"
-        )
-
-        hafta_isaret = (
-            "🟢"
-            if sonuc["weekly_change"] >= 0
-            else "🔴"
-        )
 
         adx_deger = (
             sonuc["adx14"]
         )
+
 
         adx_isaret = (
             adx_gosterge(
@@ -1347,41 +1704,52 @@ def main():
             )
         )
 
+
+        sinyal_puani = (
+            sonuc["signal_score"]
+        )
+
+
+        sinyal_gucu = (
+            sinyal_gucu_gosterge(
+                sinyal_puani
+            )
+        )
+
+
         fiyat = (
             sonuc["price"]
         )
 
-        stop = (
-            sonuc["stop"]
-        )
 
         s1 = (
             sonuc["s1"]
         )
 
+
+        stop = (
+            sonuc["stop"]
+        )
+
+
         k1 = (
             sonuc["k1"]
         )
+
 
         k2 = (
             sonuc["k2"]
         )
 
+
         k3 = (
             sonuc["k3"]
         )
 
-        hacim = (
-            sonuc["volume"]
-        )
 
-        hacim_ort20 = (
-            sonuc["volume_avg20"]
-        )
-
-        hacim_yuzde = (
-            sonuc["volume_percent"]
-        )
+        # -------------------------------------------------
+        # YÜZDELER
+        # -------------------------------------------------
 
         stop_yuzde = (
             yuzde_mesafe(
@@ -1390,12 +1758,6 @@ def main():
             )
         )
 
-        s1_yuzde = (
-            yuzde_mesafe(
-                s1,
-                fiyat
-            )
-        )
 
         k1_yuzde = (
             yuzde_mesafe(
@@ -1404,12 +1766,14 @@ def main():
             )
         )
 
+
         k2_yuzde = (
             yuzde_mesafe(
                 k2,
                 fiyat
             )
         )
+
 
         k3_yuzde = (
             yuzde_mesafe(
@@ -1418,56 +1782,118 @@ def main():
             )
         )
 
+
+        # -------------------------------------------------
+        # HACİM
+        # -------------------------------------------------
+
+        hacim_farki = (
+            sonuc[
+                "volume_difference"
+            ]
+        )
+
+
+        if hacim_farki >= 0:
+
+            hacim_yazisi = (
+                f"+{hacim_farki:.1f}% "
+                f"Ort. üstü"
+            )
+
+        else:
+
+            hacim_yazisi = (
+                f"{hacim_farki:.1f}% "
+                f"Ort. altı"
+            )
+
+
+        # -------------------------------------------------
+        # GÜNLÜK / HAFTALIK İŞARET
+        # -------------------------------------------------
+
+        gunluk_isaret = (
+            "🟢"
+            if sonuc["daily_change"] >= 0
+            else "🔴"
+        )
+
+
+        hafta_isaret = (
+            "🟢"
+            if sonuc["weekly_change"] >= 0
+            else "🔴"
+        )
+
+
         # =================================================
         # TELEGRAM MESAJI
         # =================================================
 
         mesaj = (
+
             f"🟢 YENİ : {symbol}"
             f"                    "
             f"ADX {adx_isaret} "
-            f"{adx_deger:.1f}\n\n"
+            f"{adx_deger:.1f}\n"
+
+            f"⭐ Sinyal Gücü: "
+            f"{sinyal_puani}/100 "
+            f"{sinyal_gucu}\n\n"
+
 
             f"💰 Giriş: "
             f"{fiyat:.2f} TL\n"
 
+
             f"{gunluk_isaret} Günlük: "
             f"{sonuc['daily_change']:+.2f}%\n"
+
 
             f"{hafta_isaret} 1 Hafta: "
             f"{sonuc['weekly_change']:+.2f}%\n"
 
+
             f"📏 EMA14: "
             f"{sonuc['ema14']:.2f} TL\n"
+
 
             f"📊 RSI: "
             f"{sonuc['rsi14']:.1f}\n"
 
+
             f"🔊 Hacim: "
-            f"{hacim:,.0f}\n"
+            f"{sonuc['volume']:,.0f}\n"
 
-            f"📊 20G Hacim Ort.: "
-            f"{hacim_ort20:,.0f}\n"
 
-            f"📈 Hacim / Ort.: "
-            f"{hacim_yuzde:+.1f}%\n\n"
+            f"📊 Hacim Ort.20: "
+            f"{sonuc['volume_avg20']:,.0f}\n"
+
+
+            f"📈 Hacim: "
+            f"{hacim_yazisi}\n\n"
+
 
             f"🛑 S1 Destek: "
-            f"{s1:.2f} TL "
-            f"→ {s1_yuzde:+.2f}%\n"
+            f"{s1:.2f} TL\n"
+
 
             f"🛑 Stop: "
             f"{stop:.2f} TL "
             f"→ {stop_yuzde:+.2f}%\n\n"
+
 
             f"🎯 K1: "
             f"{k1:.2f} TL "
             f"→ {k1_yuzde:+.2f}%\n"
         )
 
+
         if k2 is not None:
 
             mesaj += (
+
                 f"🎯 K2: "
                 f"{k2:.2f} TL "
                 f"→ {k2_yuzde:+.2f}%\n"
@@ -1480,9 +1906,11 @@ def main():
                 "Bulunamadı\n"
             )
 
+
         if k3 is not None:
 
             mesaj += (
+
                 f"🎯 K3: "
                 f"{k3:.2f} TL "
                 f"→ {k3_yuzde:+.2f}%"
@@ -1495,6 +1923,11 @@ def main():
                 "Bulunamadı"
             )
 
+
+        # -------------------------------------------------
+        # TELEGRAM'A GÖNDER
+        # -------------------------------------------------
+
         if telegram_gonder(
             mesaj
         ):
@@ -1502,6 +1935,7 @@ def main():
             basariyla_gonderilenler.add(
                 symbol
             )
+
 
     # =====================================================
     # SADECE BAŞARILI GİDENLERİ KAYDET
