@@ -21,6 +21,7 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 ADX_PERIOD = 14
+HACIM_ORTALAMA_PERIOD = 20
 
 MAX_WORKERS = 4
 MAX_RETRIES = 3
@@ -148,9 +149,7 @@ def gonderilenleri_oku():
 # GÖNDERİLENLERİ KAYDET
 # =========================================================
 
-def gonderilenleri_kaydet(
-    hisseler
-):
+def gonderilenleri_kaydet(hisseler):
 
     bugun = datetime.now(
         ISTANBUL
@@ -175,9 +174,7 @@ def gonderilenleri_kaydet(
                     satir = satir.strip()
 
                     if satir:
-                        mevcut.append(
-                            satir
-                        )
+                        mevcut.append(satir)
 
         bugunku = {
             satir
@@ -237,9 +234,7 @@ def gonderilenleri_kaydet(
 # TELEGRAM
 # =========================================================
 
-def telegram_gonder(
-    mesaj
-):
+def telegram_gonder(mesaj):
 
     url = (
         f"https://api.telegram.org/"
@@ -333,9 +328,7 @@ def bist100_listesi():
 # RSI
 # =========================================================
 
-def rsi_hesapla(
-    close
-):
+def rsi_hesapla(close):
 
     delta = close.diff()
 
@@ -375,17 +368,13 @@ def rsi_hesapla(
 # ADX
 # =========================================================
 
-def adx_hesapla(
-    df
-):
+def adx_hesapla(df):
 
     high = df["High"]
     low = df["Low"]
     close = df["Close"]
 
-    onceki_close = close.shift(
-        1
-    )
+    onceki_close = close.shift(1)
 
     yukari_hareket = high.diff()
 
@@ -484,9 +473,7 @@ def adx_hesapla(
 # ADX RENK
 # =========================================================
 
-def adx_gosterge(
-    adx
-):
+def adx_gosterge(adx):
 
     if adx >= 25:
         return "🟢"
@@ -501,9 +488,7 @@ def adx_gosterge(
 # VERİ AL
 # =========================================================
 
-def veri_al(
-    symbol
-):
+def veri_al(symbol):
 
     for deneme in range(
         1,
@@ -572,10 +557,7 @@ def veri_al(
 # GERÇEK DESTEK / DİRENÇ BULMA
 # =========================================================
 
-def destek_direnc_bul(
-    df,
-    fiyat
-):
+def destek_direnc_bul(df, fiyat):
 
     high = df["High"].astype(
         float
@@ -584,10 +566,6 @@ def destek_direnc_bul(
     low = df["Low"].astype(
         float
     )
-
-    # Son 6 aylık veride yerel tepe/dip arıyoruz.
-    # Bir seviyenin anlamlı olması için
-    # komşu mumlardan belirgin şekilde ayrılması gerekir.
 
     direncler = []
     destekler = []
@@ -639,13 +617,7 @@ def destek_direnc_bul(
                 float(mevcut_low)
             )
 
-    # -----------------------------------------------------
-    # Çok yakın seviyeleri birleştir
-    # -----------------------------------------------------
-
-    def seviyeleri_temizle(
-        seviyeler
-    ):
+    def seviyeleri_temizle(seviyeler):
 
         if not seviyeler:
             return []
@@ -670,8 +642,6 @@ def destek_direnc_bul(
                 / son_seviye
             ) * 100
 
-            # %1.5'ten daha yakın seviyeler
-            # aynı bölge kabul edilir.
             if fark >= 1.5:
 
                 temiz.append(
@@ -680,8 +650,6 @@ def destek_direnc_bul(
 
             else:
 
-                # Daha güçlü/uzak seviyeyi korumak
-                # yerine ortalamasını alıyoruz.
                 temiz[-1] = (
                     son_seviye
                     + seviye
@@ -697,10 +665,6 @@ def destek_direnc_bul(
         destekler
     )
 
-    # -----------------------------------------------------
-    # Fiyatın üzerindeki dirençler
-    # -----------------------------------------------------
-
     ust_direncler = [
         seviye
         for seviye in direncler
@@ -708,10 +672,6 @@ def destek_direnc_bul(
     ]
 
     ust_direncler.sort()
-
-    # -----------------------------------------------------
-    # Fiyatın altındaki destekler
-    # -----------------------------------------------------
 
     alt_destekler = [
         seviye
@@ -722,10 +682,6 @@ def destek_direnc_bul(
     alt_destekler.sort(
         reverse=True
     )
-
-    # -----------------------------------------------------
-    # K1 / K2 / K3
-    # -----------------------------------------------------
 
     k1 = (
         ust_direncler[0]
@@ -745,21 +701,11 @@ def destek_direnc_bul(
         else None
     )
 
-    # -----------------------------------------------------
-    # S1
-    # -----------------------------------------------------
-
     s1 = (
         alt_destekler[0]
         if len(alt_destekler) >= 1
         else None
     )
-
-    # -----------------------------------------------------
-    # Eğer destek bulunamazsa EMA14'ü
-    # otomatik stop olarak kullanmıyoruz.
-    # S1 gerçekten destek olmalı.
-    # -----------------------------------------------------
 
     return (
         s1,
@@ -773,9 +719,7 @@ def destek_direnc_bul(
 # ANALİZ
 # =========================================================
 
-def analiz_et(
-    symbol
-):
+def analiz_et(symbol):
 
     try:
 
@@ -835,7 +779,7 @@ def analiz_et(
         )
 
         # -------------------------------------------------
-        # Ichimoku BASE
+        # ICHIMOKU BASE
         # -------------------------------------------------
 
         base_yuksek = (
@@ -858,6 +802,23 @@ def analiz_et(
             base_yuksek
             + base_dusuk
         ) / 2
+
+        # -------------------------------------------------
+        # 20 GÜNLÜK ORTALAMA HACİM
+        #
+        # Mevcut gün dahil edilmiyor.
+        # Önceki 20 işlem gününün ortalaması.
+        # BU BİR FİLTRE DEĞİL.
+        # -------------------------------------------------
+
+        df["HACIM_ORT20"] = (
+            df["Volume"]
+            .shift(1)
+            .rolling(
+                HACIM_ORTALAMA_PERIOD
+            )
+            .mean()
+        )
 
         onceki = df.iloc[
             -2
@@ -903,6 +864,32 @@ def analiz_et(
 
         try:
 
+            hacim_ort20 = float(
+                son["HACIM_ORT20"]
+            )
+
+        except Exception:
+
+            hacim_ort20 = 0.0
+
+        if (
+            hacim_ort20 > 0
+        ):
+
+            hacim_yuzde = (
+                (
+                    hacim
+                    / hacim_ort20
+                )
+                - 1
+            ) * 100
+
+        else:
+
+            hacim_yuzde = 0.0
+
+        try:
+
             adx = float(
                 son["ADX14"]
             )
@@ -912,7 +899,7 @@ def analiz_et(
             adx = 0.0
 
         # =================================================
-        # YENİ TARAMA SİSTEMİ
+        # TARAMA KRİTERLERİ
         # =================================================
 
         # 1️⃣ BASE yukarı kesildi
@@ -949,7 +936,9 @@ def analiz_et(
         )
 
         # -------------------------------------------------
-        # TÜM ŞARTLAR AYNI ANDA SAĞLANMALI
+        # SADECE 5 KRİTER FİLTRE
+        #
+        # HACİM FİLTRE DEĞİL.
         # -------------------------------------------------
 
         if not (
@@ -967,7 +956,7 @@ def analiz_et(
         )
 
         # =================================================
-        # GERÇEK DESTEK / DİRENÇLER
+        # GERÇEK DESTEK / DİRENÇ
         # =================================================
 
         (
@@ -980,20 +969,20 @@ def analiz_et(
             fiyat
         )
 
-        # En azından S1 ve K1 bulunmasını istiyoruz.
-        # Çünkü hedef/stop olmadan sinyalin
-        # risk yönetimi eksik kalır.
-
         if s1 is None:
+
             print(
-                f"{symbol}: S1 destek bulunamadı."
+                f"{symbol}: "
+                f"S1 destek bulunamadı."
             )
 
             return None
 
         if k1 is None:
+
             print(
-                f"{symbol}: K1 direnç bulunamadı."
+                f"{symbol}: "
+                f"K1 direnç bulunamadı."
             )
 
             return None
@@ -1002,12 +991,12 @@ def analiz_et(
         # STOP
         # =================================================
 
-        # S1'in biraz altında güvenlik payı.
         stop = (
             s1 * 0.995
         )
 
         return {
+
             "symbol": symbol,
 
             "price": fiyat,
@@ -1021,6 +1010,14 @@ def analiz_et(
             ),
 
             "volume": hacim,
+
+            "volume_avg20": (
+                hacim_ort20
+            ),
+
+            "volume_percent": (
+                hacim_yuzde
+            ),
 
             "ema14": float(
                 son["EMA14"]
@@ -1072,7 +1069,7 @@ def analiz_et(
 
 
 # =========================================================
-# YÜZDE FORMAT
+# YÜZDE MESAFE
 # =========================================================
 
 def yuzde_mesafe(
@@ -1317,7 +1314,7 @@ def main():
     )
 
     # =====================================================
-    # TELEGRAM GÖNDER
+    # TELEGRAM
     # =====================================================
 
     basariyla_gonderilenler = set()
@@ -1327,18 +1324,6 @@ def main():
         symbol = (
             sonuc["symbol"]
         )
-
-        if symbol in bist100:
-
-            pazar_adi = "BIST 100"
-
-        elif symbol in ANA_PAZAR:
-
-            pazar_adi = "Ana Pazar"
-
-        else:
-
-            pazar_adi = "Bilinmiyor"
 
         gunluk_isaret = (
             "🟢"
@@ -1386,9 +1371,28 @@ def main():
             sonuc["k3"]
         )
 
+        hacim = (
+            sonuc["volume"]
+        )
+
+        hacim_ort20 = (
+            sonuc["volume_avg20"]
+        )
+
+        hacim_yuzde = (
+            sonuc["volume_percent"]
+        )
+
         stop_yuzde = (
             yuzde_mesafe(
                 stop,
+                fiyat
+            )
+        )
+
+        s1_yuzde = (
+            yuzde_mesafe(
+                s1,
                 fiyat
             )
         )
@@ -1440,10 +1444,17 @@ def main():
             f"{sonuc['rsi14']:.1f}\n"
 
             f"🔊 Hacim: "
-            f"{sonuc['volume']:,.0f}\n\n"
+            f"{hacim:,.0f}\n"
+
+            f"📊 20G Hacim Ort.: "
+            f"{hacim_ort20:,.0f}\n"
+
+            f"📈 Hacim / Ort.: "
+            f"{hacim_yuzde:+.1f}%\n\n"
 
             f"🛑 S1 Destek: "
-            f"{s1:.2f} TL\n"
+            f"{s1:.2f} TL "
+            f"→ {s1_yuzde:+.2f}%\n"
 
             f"🛑 Stop: "
             f"{stop:.2f} TL "
