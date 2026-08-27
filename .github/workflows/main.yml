@@ -2,9 +2,13 @@ name: Trading Bot Calistir
 
 on:
   schedule:
+    # SABAH WORKFLOW
+    # 09:50'de başlar
     - cron: "50 9 * * 1-5"
       timezone: "Europe/Istanbul"
 
+    # ÖĞLEDEN SONRA WORKFLOW
+    # 14:00'de başlar
     - cron: "0 14 * * 1-5"
       timezone: "Europe/Istanbul"
 
@@ -27,17 +31,36 @@ jobs:
 
     steps:
 
+      # ==================================================
+      # KODU İNDİR
+      # ==================================================
+
       - name: Kodu indir
         uses: actions/checkout@v4
+
+
+      # ==================================================
+      # PYTHON KUR
+      # ==================================================
 
       - name: Python kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
+      # ==================================================
+      # PAKETLERİ KUR
+      # ==================================================
+
       - name: Paketleri yukle
         run: |
           pip install -r requirements.txt
+
+
+      # ==================================================
+      # BOTU ÇALIŞTIR
+      # ==================================================
 
       - name: Botu 5 dakikada bir calistir
         run: |
@@ -47,92 +70,230 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "===================================="
 
-          while true; do
+          START_HOUR=$(TZ=Europe/Istanbul date +%H)
+          START_MINUTE=$(TZ=Europe/Istanbul date +%M)
 
-            HOUR=$(TZ=Europe/Istanbul date +%H)
-            MINUTE=$(TZ=Europe/Istanbul date +%M)
+          START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
-            TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
+          echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
 
-            echo ""
-            echo "Turkiye saati: ${HOUR}:${MINUTE}"
+          # ==================================================
+          # SABAH WORKFLOW
+          # 09:50 - 14:00
+          # ==================================================
 
-            # 09:50'den onceyse 09:50'yi bekle
-            if [ "$TOTAL_MINUTES" -lt 590 ]; then
-              echo "09:50 bekleniyor..."
-              sleep 60
-              continue
-            fi
-
-            # 18:00 veya sonrasiysa bitir
-            if [ "$TOTAL_MINUTES" -ge 1080 ]; then
-              echo "18:00 oldu. Bugunku tarama tamamlandi."
-              break
-            fi
+          if [ "$START_TOTAL" -lt 840 ]; then
 
             echo ""
             echo "===================================="
-            echo "Yeni tarama: ${HOUR}:${MINUTE}"
+            echo "SABAH TARAMA MODU"
+            echo "09:50 - 14:00"
             echo "===================================="
 
-            BASLANGIC=$(date +%s)
+            while true; do
 
-            python main.py
+              HOUR=$(TZ=Europe/Istanbul date +%H)
+              MINUTE=$(TZ=Europe/Istanbul date +%M)
 
-            BITIS=$(date +%s)
-            GECEN=$((BITIS - BASLANGIC))
+              TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
+
+              echo ""
+              echo "Turkiye saati: ${HOUR}:${MINUTE}"
+
+              # 09:50'den önceyse bekle
+              if [ "$TOTAL_MINUTES" -lt 590 ]; then
+
+                echo "09:50 bekleniyor..."
+
+                sleep 30
+
+                continue
+
+              fi
+
+              # 14:00 geldiğinde SABAH WORKFLOW kapanır
+              if [ "$TOTAL_MINUTES" -ge 840 ]; then
+
+                echo ""
+                echo "14:00 oldu."
+                echo "Sabah tarama workflow'u kapatiliyor."
+
+                break
+
+              fi
+
+              echo ""
+              echo "===================================="
+              echo "Yeni sabah taramasi: ${HOUR}:${MINUTE}"
+              echo "===================================="
+
+              BASLANGIC=$(date +%s)
+
+              python main.py
+
+              BITIS=$(date +%s)
+
+              GECEN=$((BITIS - BASLANGIC))
+
+              echo ""
+              echo "Tarama suresi: ${GECEN} saniye"
+
+              # ==================================================
+              # BİR SONRAKİ 5 DAKİKALIK ZAMANI HESAPLA
+              # ==================================================
+
+              CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
+
+              CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
+              CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
+
+              NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
+
+              if [ "$NEXT_WAIT" -eq 5 ]; then
+                NEXT_WAIT=0
+              fi
+
+              WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+
+              if [ "$WAIT_SECONDS" -le 0 ]; then
+                WAIT_SECONDS=5
+              fi
+
+              echo ""
+              echo "Bir sonraki sabah taramasi icin ${WAIT_SECONDS} saniye bekleniyor..."
+
+              sleep "$WAIT_SECONDS"
+
+            done
+
+          # ==================================================
+          # ÖĞLEDEN SONRA WORKFLOW
+          # 14:00 - 18:00
+          # ==================================================
+
+          else
 
             echo ""
-            echo "Tarama suresi: ${GECEN} saniye"
+            echo "===================================="
+            echo "OGLEDEN SONRA TARAMA MODU"
+            echo "14:00 - 18:00"
+            echo "===================================="
 
-            # Tarama bittikten sonraki mevcut dakika
-            CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
+            while true; do
 
-            CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
-            CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
+              HOUR=$(TZ=Europe/Istanbul date +%H)
+              MINUTE=$(TZ=Europe/Istanbul date +%M)
 
-            # Bir sonraki 5 dakikalik dakikayi bul
-            NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
+              TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
-            if [ "$NEXT_WAIT" -eq 5 ]; then
-              NEXT_WAIT=0
-            fi
+              echo ""
+              echo "Turkiye saati: ${HOUR}:${MINUTE}"
 
-            WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+              # 14:00'ten önceyse bekle
+              if [ "$TOTAL_MINUTES" -lt 840 ]; then
 
-            # Eger zaten 5 dakikalik sinira cok yakinsa
-            if [ "$WAIT_SECONDS" -le 0 ]; then
-              WAIT_SECONDS=5
-            fi
+                echo "14:00 bekleniyor..."
 
-            echo "Bir sonraki tarama icin ${WAIT_SECONDS} saniye bekleniyor..."
+                sleep 30
 
-            sleep "$WAIT_SECONDS"
+                continue
 
-          done
+              fi
+
+              # 18:05 geldiğinde ÖĞLEDEN SONRA WORKFLOW kapanır
+              if [ "$TOTAL_MINUTES" -ge 1085 ]; then
+
+                echo ""
+                echo "18:05 oldu."
+                echo "Ogleden sonra tarama workflow'u kapatiliyor."
+
+                break
+
+              fi
+
+              echo ""
+              echo "===================================="
+              echo "Yeni ogleden sonra taramasi: ${HOUR}:${MINUTE}"
+              echo "===================================="
+
+              BASLANGIC=$(date +%s)
+
+              python main.py
+
+              BITIS=$(date +%s)
+
+              GECEN=$((BITIS - BASLANGIC))
+
+              echo ""
+              echo "Tarama suresi: ${GECEN} saniye"
+
+              # ==================================================
+              # BİR SONRAKİ 5 DAKİKALIK ZAMANI HESAPLA
+              # ==================================================
+
+              CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
+
+              CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
+              CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
+
+              NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
+
+              if [ "$NEXT_WAIT" -eq 5 ]; then
+                NEXT_WAIT=0
+              fi
+
+              WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+
+              if [ "$WAIT_SECONDS" -le 0 ]; then
+                WAIT_SECONDS=5
+              fi
+
+              echo ""
+              echo "Bir sonraki ogleden sonra taramasi icin ${WAIT_SECONDS} saniye bekleniyor..."
+
+              sleep "$WAIT_SECONDS"
+
+            done
+
+          fi
 
           echo ""
           echo "===================================="
           echo "TARAMA DONGUSU TAMAMLANDI"
           echo "===================================="
 
+
+      # ==================================================
+      # GÖNDERİLEN HİSSELERİ KAYDET
+      # ==================================================
+
       - name: Gonderilen hisseleri kaydet
         run: |
+
           if [ -f gonderilen_hisseler.txt ]; then
 
             git config user.name "github-actions[bot]"
+
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
             git add gonderilen_hisseler.txt
 
             if git diff --cached --quiet; then
+
               echo "Yeni gonderilen hisse yok."
+
             else
+
               git commit -m "Gunluk gonderilen hisseleri guncelle"
+
               git push
+
             fi
 
           else
+
             echo "gonderilen_hisseler.txt bulunamadi."
+
           fi
