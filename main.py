@@ -21,6 +21,11 @@ EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
 ADX_PERIOD = 14
+
+# Fibonacci indikatöründeki lookback
+FIB_LOOKBACK = 100
+
+# 20 günlük ortalama hacim
 VOLUME_AVG_PERIOD = 20
 
 MAX_WORKERS = 4
@@ -482,7 +487,7 @@ def adx_hesapla(
 
 
 # =========================================================
-# ADX RENK
+# ADX GÖSTERGE
 # =========================================================
 
 def adx_gosterge(
@@ -524,7 +529,7 @@ def veri_al(
             if df is None:
                 return None
 
-            if len(df) < 60:
+            if len(df) < 120:
                 return None
 
             return df.copy()
@@ -570,174 +575,175 @@ def veri_al(
 
 
 # =========================================================
-# DESTEK / DİRENÇ BUL
+# FIBONACCI
+#
+# TradingView'daki gönderdiğin indikatörün mantığı:
+#
+# Fhigh = son 100 mumun en yüksek High değeri
+# Flow  = son 100 mumun en düşük Low değeri
+#
+# highestbars / lowestbars mantığıyla:
+#
+# Eğer dip daha eskiyse:
+#     0 = tepe
+#     1 = dip
+#
+# Eğer tepe daha eskiyse:
+#     0 = dip
+#     1 = tepe
+#
+# Böylece Fib yönü otomatik belirlenir.
 # =========================================================
 
-def destek_direnc_bul(
+def fibonacci_hesapla(
     df,
     fiyat
 ):
 
-    high = df["High"].astype(
+    fib_df = df.tail(
+        FIB_LOOKBACK
+    ).copy()
+
+    if len(fib_df) < FIB_LOOKBACK:
+        return None
+
+    high = fib_df["High"].astype(
         float
     )
 
-    low = df["Low"].astype(
+    low = fib_df["Low"].astype(
         float
     )
 
-    direncler = []
-    destekler = []
+    # -----------------------------------------------------
+    # Son 100 mumdaki ekstrem değerler
+    # -----------------------------------------------------
 
-    pencere = 3
+    fhigh = float(
+        high.max()
+    )
 
-    for i in range(
-        pencere,
-        len(df) - pencere
-    ):
+    flow = float(
+        low.min()
+    )
 
-        mevcut_high = high.iloc[i]
+    # -----------------------------------------------------
+    # En yüksek ve en düşük değerlerin
+    # 100 mum içindeki konumları
+    #
+    # TradingView highestbars / lowestbars:
+    # mevcut mum = 0
+    # geçmişe gittikçe negatif
+    # -----------------------------------------------------
 
-        sol_high = high.iloc[
-            i - pencere:i
-        ].max()
+    high_position = (
+        len(fib_df)
+        - 1
+        - high.values.argmax()
+    )
 
-        sag_high = high.iloc[
-            i + 1:i + pencere + 1
-        ].max()
+    low_position = (
+        len(fib_df)
+        - 1
+        - low.values.argmin()
+    )
 
-        if (
-            mevcut_high >= sol_high
-            and
-            mevcut_high >= sag_high
-        ):
+    # TradingView:
+    #
+    # revfibs = FL > FH
+    #
+    # Yani düşük değer daha yakın zamanda
+    # oluşmuşsa Fib yönü tersine döner.
 
-            direncler.append(
-                float(mevcut_high)
+    revfibs = (
+        low_position
+        > high_position
+    )
+
+    # -----------------------------------------------------
+    # Fib değerlerini TradingView mantığıyla hesapla
+    # -----------------------------------------------------
+
+    def fib_x(n):
+
+        if revfibs:
+
+            return (
+                (fhigh - flow) * n
+                + flow
             )
 
-        mevcut_low = low.iloc[i]
+        else:
 
-        sol_low = low.iloc[
-            i - pencere:i
-        ].min()
-
-        sag_low = low.iloc[
-            i + 1:i + pencere + 1
-        ].min()
-
-        if (
-            mevcut_low <= sol_low
-            and
-            mevcut_low <= sag_low
-        ):
-
-            destekler.append(
-                float(mevcut_low)
+            return (
+                fhigh
+                - (
+                    (fhigh - flow)
+                    * n
+                )
             )
 
-    def seviyeleri_temizle(
-        seviyeler
-    ):
+    fib_oranlari = [
+        0.000,
+        0.236,
+        0.382,
+        0.500,
+        0.618,
+        0.786,
+        1.000
+    ]
 
-        if not seviyeler:
-            return []
+    seviyeler = []
 
-        seviyeler = sorted(
-            seviyeler
+    for oran in fib_oranlari:
+
+        seviye = float(
+            fib_x(oran)
         )
 
-        temiz = [
-            seviyeler[0]
-        ]
+        seviyeler.append({
+            "fib": oran,
+            "price": seviye
+        })
 
-        for seviye in seviyeler[1:]:
+    # -----------------------------------------------------
+    # Fiyatın altındaki Fib seviyeleri
+    # S1 = fiyata en yakın destek
+    # -----------------------------------------------------
 
-            son_seviye = temiz[-1]
-
-            if son_seviye == 0:
-                temiz.append(seviye)
-                continue
-
-            fark = (
-                abs(
-                    seviye
-                    - son_seviye
-                )
-                / son_seviye
-            ) * 100
-
-            if fark >= 1.5:
-
-                temiz.append(
-                    seviye
-                )
-
-            else:
-
-                temiz[-1] = (
-                    son_seviye
-                    + seviye
-                ) / 2
-
-        return temiz
-
-    direncler = seviyeleri_temizle(
-        direncler
-    )
-
-    destekler = seviyeleri_temizle(
-        destekler
-    )
-
-    ust_direncler = [
+    destekler = [
         seviye
-        for seviye in direncler
-        if seviye > fiyat * 1.005
+        for seviye in seviyeler
+        if seviye["price"] < fiyat
     ]
 
-    ust_direncler.sort()
-
-    alt_destekler = [
-        seviye
-        for seviye in destekler
-        if seviye < fiyat * 0.995
-    ]
-
-    alt_destekler.sort(
+    destekler.sort(
+        key=lambda x: x["price"],
         reverse=True
     )
 
-    k1 = (
-        ust_direncler[0]
-        if len(ust_direncler) >= 1
-        else None
+    # -----------------------------------------------------
+    # Fiyatın üstündeki Fib seviyeleri
+    # K1 = fiyata en yakın direnç
+    # -----------------------------------------------------
+
+    direncler = [
+        seviye
+        for seviye in seviyeler
+        if seviye["price"] > fiyat
+    ]
+
+    direncler.sort(
+        key=lambda x: x["price"]
     )
 
-    k2 = (
-        ust_direncler[1]
-        if len(ust_direncler) >= 2
-        else None
-    )
-
-    k3 = (
-        ust_direncler[2]
-        if len(ust_direncler) >= 3
-        else None
-    )
-
-    s1 = (
-        alt_destekler[0]
-        if len(alt_destekler) >= 1
-        else None
-    )
-
-    return (
-        s1,
-        k1,
-        k2,
-        k3
-    )
+    return {
+        "high": fhigh,
+        "low": flow,
+        "revfibs": revfibs,
+        "supports": destekler,
+        "resistances": direncler
+    }
 
 
 # =========================================================
@@ -752,9 +758,6 @@ def yuzde_mesafe(
     if seviye is None:
         return None
 
-    if fiyat == 0:
-        return None
-
     return (
         (
             seviye
@@ -766,228 +769,121 @@ def yuzde_mesafe(
 
 # =========================================================
 # SİNYAL GÜCÜ
+#
+# 100 puan üzerinden:
+#
+# BASE yukarı kesişimi       = 30
+# Fiyat EMA14 +%3 veya üstü = 20
+# EMA14 yükseliyor           = 15
+# RSI > 50                   = 15
+# RSI yükseliyor             = 10
+# Hacim / 20G ort.           = 10
+#
+# Hacim puana katkı sağlar
+# ancak filtre değildir.
 # =========================================================
 
 def sinyal_gucu_hesapla(
-    fiyat,
-    ema14,
-    ema_onceki,
-    rsi14,
-    rsi_onceki,
-    adx14,
+    df,
+    son,
+    onceki,
     hacim,
-    hacim_ort20,
-    k1
+    ortalama_hacim
 ):
 
-    puan = 0.0
+    puan = 0
 
-    # -----------------------------------------------------
-    # 1. BASE yukarı kesişimi
-    # Bu şart zaten filtre olduğu için 20 puan.
-    # -----------------------------------------------------
-
-    puan += 20
-
-
-    # -----------------------------------------------------
-    # 2. Fiyat EMA14 üzerinde ne kadar güçlü?
-    # %3 = düşük puan
-    # %8 ve üzeri = maksimum
-    # -----------------------------------------------------
-
-    if ema14 > 0:
-
-        ema_mesafe = (
-            (fiyat / ema14) - 1
-        ) * 100
-
-        ema_puan = min(
-            15,
-            max(
-                0,
-                (ema_mesafe - 3) / 5 * 15
-            )
-        )
-
-        puan += ema_puan
-
-
-    # -----------------------------------------------------
-    # 3. EMA14 yükselişi
-    # -----------------------------------------------------
-
-    if ema_onceki > 0:
-
-        ema_egim = (
-            (
-                ema14
-                / ema_onceki
-            ) - 1
-        ) * 100
-
-        ema_puan = min(
-            15,
-            max(
-                0,
-                ema_egim / 1.0 * 15
-            )
-        )
-
-        puan += ema_puan
-
-
-    # -----------------------------------------------------
-    # 4. RSI gücü
-    # 50 = düşük
-    # 65+ = maksimum
-    # -----------------------------------------------------
-
-    rsi_puan = min(
-        10,
-        max(
-            0,
-            (rsi14 - 50) / 15 * 10
-        )
+    # BASE yukarı kesildi
+    base_cross = (
+        onceki["BASE"]
+        >= onceki["Close"]
+        and
+        son["BASE"]
+        < son["Close"]
     )
 
-    puan += rsi_puan
+    if base_cross:
+        puan += 30
 
-
-    # -----------------------------------------------------
-    # 5. RSI yükselişi
-    # -----------------------------------------------------
-
-    rsi_fark = (
-        rsi14
-        - rsi_onceki
+    # Fiyat EMA14 üzerinde
+    ema_orani = (
+        son["Close"]
+        / son["EMA14"]
     )
 
-    rsi_puan = min(
-        10,
-        max(
-            0,
-            rsi_fark / 5 * 10
-        )
-    )
+    if ema_orani >= 1.03:
 
-    puan += rsi_puan
+        puan += 20
 
+    elif ema_orani >= 1.02:
+
+        puan += 15
+
+    elif ema_orani >= 1.01:
+
+        puan += 10
+
+    # EMA yükseliyor
+    if (
+        son["EMA14"]
+        > onceki["EMA14"]
+    ):
+
+        puan += 15
+
+    # RSI > 50
+    if son["RSI14"] > 50:
+
+        puan += 15
+
+    # RSI yükseliyor
+    if (
+        son["RSI14"]
+        > onceki["RSI14"]
+    ):
+
+        puan += 10
 
     # -----------------------------------------------------
-    # 6. Hacim / 20 günlük ortalama
+    # Hacim puanı
+    #
     # Filtre DEĞİL.
-    # Sadece puana katkı sağlar.
+    # Sadece sinyal gücüne katkı verir.
     # -----------------------------------------------------
 
     if (
-        hacim_ort20 > 0
-        and hacim > 0
+        ortalama_hacim > 0
     ):
 
         hacim_orani = (
             hacim
-            / hacim_ort20
+            / ortalama_hacim
         )
 
-        hacim_puan = min(
-            15,
-            max(
-                0,
-                (hacim_orani - 0.8)
-                / 1.2
-                * 15
-            )
-        )
+        if hacim_orani >= 2.0:
 
-        puan += hacim_puan
+            puan += 10
 
+        elif hacim_orani >= 1.5:
 
-    # -----------------------------------------------------
-    # 7. ADX
-    # 15 = düşük
-    # 30+ = maksimum
-    # -----------------------------------------------------
+            puan += 8
 
-    adx_puan = min(
-        10,
-        max(
-            0,
-            (adx14 - 15)
-            / 15
-            * 10
-        )
+        elif hacim_orani >= 1.2:
+
+            puan += 6
+
+        elif hacim_orani >= 1.0:
+
+            puan += 4
+
+        elif hacim_orani >= 0.8:
+
+            puan += 2
+
+    return min(
+        puan,
+        100
     )
-
-    puan += adx_puan
-
-
-    # -----------------------------------------------------
-    # 8. K1 mesafesi
-    # K1 girişten yeterince yukarıdaysa puan artar.
-    # -----------------------------------------------------
-
-    if (
-        k1 is not None
-        and fiyat > 0
-    ):
-
-        k1_mesafe = (
-            (
-                k1
-                / fiyat
-            ) - 1
-        ) * 100
-
-        k1_puan = min(
-            5,
-            max(
-                0,
-                k1_mesafe / 10 * 5
-            )
-        )
-
-        puan += k1_puan
-
-
-    # -----------------------------------------------------
-    # 0-100 aralığında tut
-    # -----------------------------------------------------
-
-    puan = max(
-        0,
-        min(
-            100,
-            puan
-        )
-    )
-
-    return round(
-        puan
-    )
-
-
-# =========================================================
-# SİNYAL GÜCÜ YAZISI
-# =========================================================
-
-def sinyal_gucu_gosterge(
-    puan
-):
-
-    if puan >= 80:
-        return "🟢 ÇOK GÜÇLÜ"
-
-    if puan >= 70:
-        return "🟢 GÜÇLÜ"
-
-    if puan >= 60:
-        return "🟡 ORTA"
-
-    if puan >= 50:
-        return "🟠 ZAYIF"
-
-    return "🔴 ÇOK ZAYIF"
 
 
 # =========================================================
@@ -1024,7 +920,6 @@ def analiz_et(
         ):
             return None
 
-
         # -------------------------------------------------
         # EMA14
         # -------------------------------------------------
@@ -1036,7 +931,6 @@ def analiz_et(
             ).mean()
         )
 
-
         # -------------------------------------------------
         # RSI14
         # -------------------------------------------------
@@ -1047,7 +941,6 @@ def analiz_et(
             )
         )
 
-
         # -------------------------------------------------
         # ADX14
         # -------------------------------------------------
@@ -1057,7 +950,6 @@ def analiz_et(
                 df
             )
         )
-
 
         # -------------------------------------------------
         # ICHIMOKU BASE
@@ -1084,22 +976,8 @@ def analiz_et(
             + base_dusuk
         ) / 2
 
-
         # -------------------------------------------------
-        # 20 GÜNLÜK ORTALAMA HACİM
-        # -------------------------------------------------
-
-        df["VolumeAvg20"] = (
-            df["Volume"]
-            .rolling(
-                VOLUME_AVG_PERIOD
-            )
-            .mean()
-        )
-
-
-        # -------------------------------------------------
-        # SON VERİLER
+        # Son veriler
         # -------------------------------------------------
 
         onceki = df.iloc[
@@ -1114,9 +992,8 @@ def analiz_et(
             -6
         ]
 
-
         # -------------------------------------------------
-        # DEĞİŞİMLER
+        # Haftalık değişim
         # -------------------------------------------------
 
         bir_haftalik_degisim = (
@@ -1127,6 +1004,10 @@ def analiz_et(
             - 1
         ) * 100
 
+        # -------------------------------------------------
+        # Günlük değişim
+        # -------------------------------------------------
+
         gunluk_degisim = (
             (
                 son["Close"]
@@ -1135,9 +1016,8 @@ def analiz_et(
             - 1
         ) * 100
 
-
         # -------------------------------------------------
-        # HACİM
+        # Hacim
         # -------------------------------------------------
 
         try:
@@ -1150,17 +1030,40 @@ def analiz_et(
 
             hacim = 0.0
 
+        # -------------------------------------------------
+        # 20 GÜNLÜK ORTALAMA HACİM
+        #
+        # Son gün dahil.
+        # Sadece gösterge ve sinyal gücü için.
+        # Filtre değil.
+        # -------------------------------------------------
 
         try:
 
-            hacim_ort20 = float(
-                son["VolumeAvg20"]
+            ortalama_hacim = float(
+                df["Volume"]
+                .tail(
+                    VOLUME_AVG_PERIOD
+                )
+                .mean()
             )
 
         except Exception:
 
-            hacim_ort20 = 0.0
+            ortalama_hacim = 0.0
 
+        if (
+            ortalama_hacim > 0
+        ):
+
+            hacim_orani = (
+                hacim
+                / ortalama_hacim
+            )
+
+        else:
+
+            hacim_orani = 0.0
 
         # -------------------------------------------------
         # ADX
@@ -1176,13 +1079,11 @@ def analiz_et(
 
             adx = 0.0
 
-
         # =================================================
-        # ANA TARAMA ŞARTLARI
+        # TARAMA ŞARTLARI
         # =================================================
 
-        # 1️⃣ BASE yukarı kesildi
-
+        # 1 - BASE yukarı kesildi
         ichimoku_sinyal = (
             onceki["BASE"]
             >= onceki["Close"]
@@ -1191,172 +1092,129 @@ def analiz_et(
             < son["Close"]
         )
 
-
-        # 2️⃣ Fiyat EMA14'ün en az %3 üzerinde
-
+        # 2 - Fiyat EMA14 üzerinde en az %3
         fiyat_ema_sinyal = (
             son["Close"]
             >= son["EMA14"] * 1.03
         )
 
-
-        # 3️⃣ EMA14 yükseliyor
-
+        # 3 - EMA14 yükseliyor
         ema_yukseliyor = (
             son["EMA14"]
             > onceki["EMA14"]
         )
 
-
-        # 4️⃣ RSI 50'nin üzerinde
-
+        # 4 - RSI > 50
         rsi_50_ustu = (
             son["RSI14"]
             > 50
         )
 
-
-        # 5️⃣ RSI yükseliyor
-
+        # 5 - RSI yükseliyor
         rsi_yukseliyor = (
             son["RSI14"]
             > onceki["RSI14"]
         )
 
-
-        # =================================================
-        # TÜM ANA ŞARTLAR SAĞLANMALI
-        # =================================================
+        # -------------------------------------------------
+        # TÜM ŞARTLAR AYNI ANDA SAĞLANMALI
+        #
+        # Hacim burada filtre değil.
+        # -------------------------------------------------
 
         if not (
             ichimoku_sinyal
-            and fiyat_ema_sinyal
-            and ema_yukseliyor
-            and rsi_50_ustu
-            and rsi_yukseliyor
+            and
+            fiyat_ema_sinyal
+            and
+            ema_yukseliyor
+            and
+            rsi_50_ustu
+            and
+            rsi_yukseliyor
         ):
 
             return None
-
 
         fiyat = float(
             son["Close"]
         )
 
-        ema14 = float(
-            son["EMA14"]
-        )
-
-        ema_onceki = float(
-            onceki["EMA14"]
-        )
-
-        rsi14 = float(
-            son["RSI14"]
-        )
-
-        rsi_onceki = float(
-            onceki["RSI14"]
-        )
-
-
         # =================================================
-        # DESTEK / DİRENÇ
+        # FIBONACCI
         # =================================================
 
-        (
-            s1,
-            k1,
-            k2,
-            k3
-        ) = destek_direnc_bul(
+        fibonacci = fibonacci_hesapla(
             df,
             fiyat
         )
 
-
-        # -------------------------------------------------
-        # S1 yoksa sinyal gönderme
-        # -------------------------------------------------
-
-        if s1 is None:
-
-            print(
-                f"{symbol}: "
-                f"S1 destek bulunamadı."
-            )
-
+        if fibonacci is None:
             return None
 
-
-        # -------------------------------------------------
-        # K1 yoksa sinyal gönderme
-        # -------------------------------------------------
-
-        if k1 is None:
-
-            print(
-                f"{symbol}: "
-                f"K1 direnç bulunamadı."
-            )
-
-            return None
-
-
-        # =================================================
-        # STOP
-        # =================================================
-
-        # S1'in %0.5 altında güvenlik payı
-
-        stop = (
-            s1 * 0.995
+        destekler = (
+            fibonacci["supports"]
         )
 
+        direncler = (
+            fibonacci["resistances"]
+        )
+
+        # -------------------------------------------------
+        # En az bir destek ve bir direnç
+        # -------------------------------------------------
+
+        if not destekler:
+
+            print(
+                f"{symbol}: "
+                "Fib destek bulunamadı."
+            )
+
+            return None
+
+        if not direncler:
+
+            print(
+                f"{symbol}: "
+                "Fib direnç bulunamadı."
+            )
+
+            return None
 
         # =================================================
         # SİNYAL GÜCÜ
         # =================================================
 
-        sinyal_puani = (
-            sinyal_gucu_hesapla(
-                fiyat=fiyat,
-                ema14=ema14,
-                ema_onceki=ema_onceki,
-                rsi14=rsi14,
-                rsi_onceki=rsi_onceki,
-                adx14=adx,
-                hacim=hacim,
-                hacim_ort20=hacim_ort20,
-                k1=k1
-            )
+        sinyal_gucu = sinyal_gucu_hesapla(
+            df,
+            son,
+            onceki,
+            hacim,
+            ortalama_hacim
         )
 
-
         # =================================================
-        # HACİM YÜZDE FARKI
+        # S1
         # =================================================
 
-        if hacim_ort20 > 0:
+        s1 = destekler[0]["price"]
 
-            hacim_farki = (
-                (
-                    hacim
-                    / hacim_ort20
-                ) - 1
-            ) * 100
+        # -------------------------------------------------
+        # STOP
+        #
+        # S1'in %0.5 altında.
+        # -------------------------------------------------
 
-        else:
-
-            hacim_farki = 0.0
-
+        stop = (
+            s1 * 0.995
+        )
 
         # =================================================
         # SONUÇ
         # =================================================
 
         return {
-
             "symbol": symbol,
 
             "price": fiyat,
@@ -1371,49 +1229,52 @@ def analiz_et(
 
             "volume": hacim,
 
-            "volume_avg20": hacim_ort20,
-
-            "volume_difference": float(
-                hacim_farki
+            "volume_avg20": float(
+                ortalama_hacim
             ),
 
-            "ema14": ema14,
+            "volume_ratio": float(
+                hacim_orani
+            ),
 
-            "rsi14": rsi14,
+            "ema14": float(
+                son["EMA14"]
+            ),
+
+            "rsi14": float(
+                son["RSI14"]
+            ),
 
             "adx14": adx,
-
-            "stop": float(
-                stop
-            ),
 
             "s1": float(
                 s1
             ),
 
-            "k1": (
-                float(k1)
-                if k1 is not None
-                else None
+            "stop": float(
+                stop
             ),
 
-            "k2": (
-                float(k2)
-                if k2 is not None
-                else None
+            "supports": destekler,
+
+            "resistances": direncler,
+
+            "fib_high": float(
+                fibonacci["high"]
             ),
 
-            "k3": (
-                float(k3)
-                if k3 is not None
-                else None
+            "fib_low": float(
+                fibonacci["low"]
             ),
 
-            "signal_score": int(
-                sinyal_puani
+            "fib_reverse": bool(
+                fibonacci["revfibs"]
+            ),
+
+            "signal_strength": int(
+                sinyal_gucu
             )
         }
-
 
     except Exception as hata:
 
@@ -1447,7 +1308,6 @@ def main():
         "===================================="
     )
 
-
     now = datetime.now(
         ISTANBUL
     )
@@ -1459,7 +1319,6 @@ def main():
         )
     )
 
-
     if not piyasa_acik_mi():
 
         print(
@@ -1468,16 +1327,13 @@ def main():
 
         return
 
-
     print(
         "BIST 100 listesi aliniyor..."
     )
 
-
     bist100 = (
         bist100_listesi()
     )
-
 
     if not bist100:
 
@@ -1487,45 +1343,37 @@ def main():
 
         return
 
-
     tarama_listesi = sorted(
         bist100 | ANA_PAZAR
     )
-
 
     print(
         "BIST 100 hisse sayisi:",
         len(bist100)
     )
 
-
     print(
         "Ana Pazar hisse sayisi:",
         len(ANA_PAZAR)
     )
-
 
     print(
         "Toplam benzersiz taranacak hisse:",
         len(tarama_listesi)
     )
 
-
     gonderilenler = (
         gonderilenleri_oku()
     )
-
 
     print(
         "Bugün daha önce gönderilen:",
         len(gonderilenler)
     )
 
-
     bulunan = []
 
     tamamlanan = 0
-
 
     baslangic_zamani = (
         datetime.now(
@@ -1533,19 +1381,16 @@ def main():
         )
     )
 
-
     print("")
 
     print(
         "⚡ Hızlı tarama başlıyor..."
     )
 
-
     print(
         f"⚡ Aynı anda "
         f"{MAX_WORKERS} hisse taranacak."
     )
-
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
@@ -1562,7 +1407,6 @@ def main():
             in tarama_listesi
         }
 
-
         for gelecek in as_completed(
             gelecekler
         ):
@@ -1573,7 +1417,6 @@ def main():
                 ]
             )
 
-
             try:
 
                 sonuc = (
@@ -1581,7 +1424,6 @@ def main():
                 )
 
                 tamamlanan += 1
-
 
                 if sonuc:
 
@@ -1605,7 +1447,6 @@ def main():
                             symbol
                         )
 
-
             except Exception as hata:
 
                 tamamlanan += 1
@@ -1617,7 +1458,6 @@ def main():
                     str(hata)
                 )
 
-
             if tamamlanan % 25 == 0:
 
                 print(
@@ -1626,19 +1466,16 @@ def main():
                     f"{len(tarama_listesi)}"
                 )
 
-
     bitis_zamani = (
         datetime.now(
             ISTANBUL
         )
     )
 
-
     sure = (
         bitis_zamani
         - baslangic_zamani
     ).total_seconds()
-
 
     dakika = int(
         sure // 60
@@ -1648,7 +1485,6 @@ def main():
         sure % 60
     )
 
-
     print("")
 
     print(
@@ -1656,7 +1492,6 @@ def main():
         f"{dakika} dakika "
         f"{saniye} saniye"
     )
-
 
     print("")
 
@@ -1672,12 +1507,10 @@ def main():
         "===================================="
     )
 
-
     print(
         "Yeni bulunan hisse:",
         len(bulunan)
     )
-
 
     # =====================================================
     # TELEGRAM
@@ -1685,18 +1518,31 @@ def main():
 
     basariyla_gonderilenler = set()
 
-
     for sonuc in bulunan:
 
         symbol = (
             sonuc["symbol"]
         )
 
+        if symbol in bist100:
+
+            pazar_adi = "BIST 100"
+
+        elif symbol in ANA_PAZAR:
+
+            pazar_adi = "Ana Pazar"
+
+        else:
+
+            pazar_adi = "Bilinmiyor"
+
+        # -------------------------------------------------
+        # ADX
+        # -------------------------------------------------
 
         adx_deger = (
             sonuc["adx14"]
         )
-
 
         adx_isaret = (
             adx_gosterge(
@@ -1704,113 +1550,8 @@ def main():
             )
         )
 
-
-        sinyal_puani = (
-            sonuc["signal_score"]
-        )
-
-
-        sinyal_gucu = (
-            sinyal_gucu_gosterge(
-                sinyal_puani
-            )
-        )
-
-
-        fiyat = (
-            sonuc["price"]
-        )
-
-
-        s1 = (
-            sonuc["s1"]
-        )
-
-
-        stop = (
-            sonuc["stop"]
-        )
-
-
-        k1 = (
-            sonuc["k1"]
-        )
-
-
-        k2 = (
-            sonuc["k2"]
-        )
-
-
-        k3 = (
-            sonuc["k3"]
-        )
-
-
         # -------------------------------------------------
-        # YÜZDELER
-        # -------------------------------------------------
-
-        stop_yuzde = (
-            yuzde_mesafe(
-                stop,
-                fiyat
-            )
-        )
-
-
-        k1_yuzde = (
-            yuzde_mesafe(
-                k1,
-                fiyat
-            )
-        )
-
-
-        k2_yuzde = (
-            yuzde_mesafe(
-                k2,
-                fiyat
-            )
-        )
-
-
-        k3_yuzde = (
-            yuzde_mesafe(
-                k3,
-                fiyat
-            )
-        )
-
-
-        # -------------------------------------------------
-        # HACİM
-        # -------------------------------------------------
-
-        hacim_farki = (
-            sonuc[
-                "volume_difference"
-            ]
-        )
-
-
-        if hacim_farki >= 0:
-
-            hacim_yazisi = (
-                f"+{hacim_farki:.1f}% "
-                f"Ort. üstü"
-            )
-
-        else:
-
-            hacim_yazisi = (
-                f"{hacim_farki:.1f}% "
-                f"Ort. altı"
-            )
-
-
-        # -------------------------------------------------
-        # GÜNLÜK / HAFTALIK İŞARET
+        # Günlük / Haftalık
         # -------------------------------------------------
 
         gunluk_isaret = (
@@ -1819,114 +1560,196 @@ def main():
             else "🔴"
         )
 
-
         hafta_isaret = (
             "🟢"
             if sonuc["weekly_change"] >= 0
             else "🔴"
         )
 
+        # -------------------------------------------------
+        # Değerler
+        # -------------------------------------------------
+
+        fiyat = (
+            sonuc["price"]
+        )
+
+        stop = (
+            sonuc["stop"]
+        )
+
+        s1 = (
+            sonuc["s1"]
+        )
+
+        stop_yuzde = (
+            yuzde_mesafe(
+                stop,
+                fiyat
+            )
+        )
+
+        sinyal_gucu = (
+            sonuc["signal_strength"]
+        )
+
+        hacim = (
+            sonuc["volume"]
+        )
+
+        ortalama_hacim = (
+            sonuc["volume_avg20"]
+        )
+
+        hacim_orani = (
+            sonuc["volume_ratio"]
+        )
 
         # =================================================
-        # TELEGRAM MESAJI
+        # TELEGRAM MESAJ BAŞLANGICI
         # =================================================
 
         mesaj = (
-
             f"🟢 YENİ : {symbol}"
             f"                    "
             f"ADX {adx_isaret} "
             f"{adx_deger:.1f}\n"
 
             f"⭐ Sinyal Gücü: "
-            f"{sinyal_puani}/100 "
-            f"{sinyal_gucu}\n\n"
-
+            f"{sinyal_gucu}/100\n\n"
 
             f"💰 Giriş: "
             f"{fiyat:.2f} TL\n"
 
-
             f"{gunluk_isaret} Günlük: "
             f"{sonuc['daily_change']:+.2f}%\n"
-
 
             f"{hafta_isaret} 1 Hafta: "
             f"{sonuc['weekly_change']:+.2f}%\n"
 
-
             f"📏 EMA14: "
             f"{sonuc['ema14']:.2f} TL\n"
 
-
             f"📊 RSI: "
-            f"{sonuc['rsi14']:.1f}\n"
-
+            f"{sonuc['rsi14']:.1f}\n\n"
 
             f"🔊 Hacim: "
-            f"{sonuc['volume']:,.0f}\n"
+            f"{hacim:,.0f}\n"
 
+            f"📊 20G Ort. Hacim: "
+            f"{ortalama_hacim:,.0f}\n"
 
-            f"📊 Hacim Ort.20: "
-            f"{sonuc['volume_avg20']:,.0f}\n"
+            f"📈 Hacim/Ort.: "
+            f"{hacim_orani:.2f}x\n\n"
 
-
-            f"📈 Hacim: "
-            f"{hacim_yazisi}\n\n"
-
-
-            f"🛑 S1 Destek: "
-            f"{s1:.2f} TL\n"
-
-
-            f"🛑 Stop: "
-            f"{stop:.2f} TL "
-            f"→ {stop_yuzde:+.2f}%\n\n"
-
-
-            f"🎯 K1: "
-            f"{k1:.2f} TL "
-            f"→ {k1_yuzde:+.2f}%\n"
+            f"🛑 DESTEKLER\n"
         )
 
+        # =================================================
+        # TÜM DESTEKLER
+        # =================================================
 
-        if k2 is not None:
+        destekler = (
+            sonuc["supports"]
+        )
 
-            mesaj += (
+        for index, destek in enumerate(
+            destekler,
+            start=1
+        ):
 
-                f"🎯 K2: "
-                f"{k2:.2f} TL "
-                f"→ {k2_yuzde:+.2f}%\n"
+            destek_fiyat = (
+                destek["price"]
             )
 
-        else:
-
-            mesaj += (
-                "🎯 K2: "
-                "Bulunamadı\n"
+            fib_orani = (
+                destek["fib"]
             )
 
-
-        if k3 is not None:
-
-            mesaj += (
-
-                f"🎯 K3: "
-                f"{k3:.2f} TL "
-                f"→ {k3_yuzde:+.2f}%"
+            mesafe = (
+                yuzde_mesafe(
+                    destek_fiyat,
+                    fiyat
+                )
             )
 
-        else:
-
             mesaj += (
-                "🎯 K3: "
-                "Bulunamadı"
+                f"S{index}: "
+                f"{destek_fiyat:.2f} TL "
+                f"— Fib {fib_orani:.3f} "
+                f"→ {mesafe:+.2f}%\n"
             )
 
+        # =================================================
+        # STOP
+        # =================================================
 
-        # -------------------------------------------------
-        # TELEGRAM'A GÖNDER
-        # -------------------------------------------------
+        mesaj += (
+            f"\n🛑 STOP\n"
+            f"{stop:.2f} TL "
+            f"→ {stop_yuzde:+.2f}%\n\n"
+        )
+
+        # =================================================
+        # TÜM DİRENÇLER
+        # =================================================
+
+        mesaj += (
+            "🎯 HEDEFLER\n"
+        )
+
+        direncler = (
+            sonuc["resistances"]
+        )
+
+        for index, direnç in enumerate(
+            direncler,
+            start=1
+        ):
+
+            direnç_fiyat = (
+                direnç["price"]
+            )
+
+            fib_orani = (
+                direnç["fib"]
+            )
+
+            mesafe = (
+                yuzde_mesafe(
+                    direnç_fiyat,
+                    fiyat
+                )
+            )
+
+            mesaj += (
+                f"K{index}: "
+                f"{direnç_fiyat:.2f} TL "
+                f"— Fib {fib_orani:.3f} "
+                f"→ {mesafe:+.2f}%\n"
+            )
+
+        # =================================================
+        # FIBO ANA ARALIK
+        # =================================================
+
+        mesaj += (
+            f"\n📐 100G FIB ARALIĞI\n"
+            f"🔻 Dip: "
+            f"{sonuc['fib_low']:.2f} TL\n"
+            f"🔺 Tepe: "
+            f"{sonuc['fib_high']:.2f} TL"
+        )
+
+        # =================================================
+        # TELEGRAM GÖNDER
+        # =================================================
+
+        print("")
+        print(
+            "Telegram gönderiliyor:",
+            symbol
+        )
 
         if telegram_gonder(
             mesaj
@@ -1935,7 +1758,6 @@ def main():
             basariyla_gonderilenler.add(
                 symbol
             )
-
 
     # =====================================================
     # SADECE BAŞARILI GİDENLERİ KAYDET
