@@ -95,7 +95,7 @@ def gonderilenleri_oku():
 
         print(
             "Gönderilenler okunamadı:",
-            type(hata)._name_,
+            type(hata).__name__,
             str(hata)
         )
 
@@ -171,7 +171,7 @@ def gonderilenleri_kaydet(hisseler):
 
         print(
             "Gönderilenler kaydedilemedi:",
-            type(hata)._name_,
+            type(hata).__name__,
             str(hata)
         )
 
@@ -205,7 +205,7 @@ def telegram_gonder(mesaj):
 
         print(
             "Telegram HATA:",
-            type(hata)._name_,
+            type(hata).__name__,
             str(hata)
         )
 
@@ -248,7 +248,7 @@ def bist100_listesi():
 
         print(
             "BIST 100 HATA:",
-            type(hata)._name_,
+            type(hata).__name__,
             str(hata)
         )
 
@@ -448,7 +448,7 @@ def veri_al(symbol):
             print(
                 symbol,
                 "VERİ HATASI:",
-                type(hata)._name_,
+                type(hata).__name__,
                 str(hata)
             )
 
@@ -1448,21 +1448,14 @@ def main():
 
             f"📐 FIB SEVİYELERİ\n\n"
 
-            f"{fib_satiri('0.000', fibler['0.000'], fiyat, fiyat_fib)}\n"
-
-            f"{fib_satiri('0.236', fibler['0.236'], fiyat, fiyat_fib)}\n"
-
-            f"{fib_satiri('0.382', fibler['0.382'], fiyat, fiyat_fib)}\n"
-
-            f"{fib_satiri('0.500', fibler['0.500'], fiyat, fiyat_fib)}\n"
-
-            f"{fib_satiri('0.618', fibler['0.618'], fiyat, fiyat_fib)}\n"
-
+            f"{fib_satiri('1.000', fibler['1.000'], fiyat, fiyat_fib)}\n"
             f"{fib_satiri('0.786', fibler['0.786'], fiyat, fiyat_fib)}\n"
-
-            f"{fib_satiri('1.000', fibler['1.000'], fiyat, fiyat_fib)}\n\n"
-
-            f"🛑 STOP\n"
+            f"{fib_satiri('0.618', fibler['0.618'], fiyat, fiyat_fib)}\n"
+            f"{fib_satiri('0.500', fibler['0.500'], fiyat, fiyat_fib)}\n"
+            f"{fib_satiri('0.382', fibler['0.382'], fiyat, fiyat_fib)}\n"
+            f"{fib_satiri('0.236', fibler['0.236'], fiyat, fiyat_fib)}\n"
+            f"{fib_satiri('0.000', fibler['0.000'], fiyat, fiyat_fib)}\n\n"
+f"🛑 STOP\n"
 
             f"{stop_fib} → "
             f"{stop:.2f} TL\n\n"
