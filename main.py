@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import pandas as pd
 import borsapy as bp
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -662,92 +663,277 @@ def fib_analiz(df, fiyat):
     }
 
 
-def sinyal_gucu_hesapla(
-    rsi,
-    adx,
-    ema_mesafe,
-    haftalik_degisim,
-    hacim,
-    ortalama_hacim
-):
 
-    puan = 0
+def pine_rsi(close, length):
+    """TradingView ta.rsi'ye uygun Wilder RMA tabanlı RSI."""
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
 
-    if rsi >= 70:
-        puan += 20
+    avg_gain = gain.ewm(
+        alpha=1 / length,
+        adjust=False
+    ).mean()
 
-    elif rsi >= 60:
-        puan += 17
+    avg_loss = loss.ewm(
+        alpha=1 / length,
+        adjust=False
+    ).mean()
 
-    elif rsi >= 55:
-        puan += 14
+    rs = avg_gain / avg_loss.replace(0, float("nan"))
+    rsi = 100 - (100 / (1 + rs))
 
-    elif rsi > 50:
-        puan += 10
+    rsi = rsi.where(
+        avg_loss != 0,
+        100.0
+    )
 
-    if adx >= 30:
-        puan += 20
+    return rsi
 
-    elif adx >= 25:
-        puan += 17
 
-    elif adx >= 20:
-        puan += 14
+def qqe_hesapla(df):
+    """QQE MOD'un mavi sinyalini TradingView kodundaki mantıkla hesaplar."""
 
-    elif adx >= 15:
-        puan += 9
+    def calculate_qqe(source, rsi_length, smoothing_factor, qqe_factor):
 
-    if ema_mesafe >= 7:
-        puan += 20
+        wilders_length = rsi_length * 2 - 1
 
-    elif ema_mesafe >= 5:
-        puan += 17
-
-    elif ema_mesafe >= 3:
-        puan += 14
-
-    else:
-        puan += 8
-
-    if haftalik_degisim >= 10:
-        puan += 20
-
-    elif haftalik_degisim >= 7:
-        puan += 17
-
-    elif haftalik_degisim >= 4:
-        puan += 14
-
-    elif haftalik_degisim > 0:
-        puan += 9
-
-    if ortalama_hacim > 0:
-
-        hacim_orani = (
-            hacim
-            /
-            ortalama_hacim
+        rsi = pine_rsi(
+            source,
+            rsi_length
         )
 
-        if hacim_orani >= 2:
-            puan += 20
+        smoothed_rsi = rsi.ewm(
+            span=smoothing_factor,
+            adjust=False
+        ).mean()
 
-        elif hacim_orani >= 1.5:
-            puan += 17
+        atr_rsi = (
+            smoothed_rsi.shift(1)
+            - smoothed_rsi
+        ).abs()
 
-        elif hacim_orani >= 1.0:
-            puan += 14
+        smoothed_atr_rsi = atr_rsi.ewm(
+            span=wilders_length,
+            adjust=False
+        ).mean()
 
-        else:
-            puan += 8
+        dynamic_atr_rsi = (
+            smoothed_atr_rsi
+            * qqe_factor
+        )
 
-    else:
-        puan += 8
+        long_band = []
+        short_band = []
+        trend_direction = []
 
-    return min(
-        100,
-        max(0, puan)
+        for i in range(len(df)):
+
+            sr = smoothed_rsi.iloc[i]
+            atr = dynamic_atr_rsi.iloc[i]
+
+            if i == 0:
+                previous_long = 0.0
+                previous_short = 0.0
+                previous_trend = 0
+                previous_sr = float("nan")
+            else:
+                previous_long = long_band[i - 1]
+                previous_short = short_band[i - 1]
+                previous_trend = trend_direction[i - 1]
+                previous_sr = smoothed_rsi.iloc[i - 1]
+
+            if pd_isna(sr) or pd_isna(atr):
+                long_band.append(
+                    float("nan")
+                )
+                short_band.append(
+                    float("nan")
+                )
+                trend_direction.append(
+                    previous_trend
+                )
+                continue
+
+            new_short_band = sr + atr
+            new_long_band = sr - atr
+
+            if (
+                not pd_isna(previous_sr)
+                and previous_sr > previous_long
+                and sr > previous_long
+            ):
+                current_long = max(
+                    previous_long,
+                    new_long_band
+                )
+            else:
+                current_long = new_long_band
+
+            if (
+                not pd_isna(previous_sr)
+                and previous_sr < previous_short
+                and sr < previous_short
+            ):
+                current_short = min(
+                    previous_short,
+                    new_short_band
+                )
+            else:
+                current_short = new_short_band
+
+            # Pine ta.cross(x, y): önceki fark ile güncel farkın
+            # zıt işaretli olması veya sıfırdan geçmesi.
+            def crossed(a_prev, b_prev, a_now, b_now):
+                if any(pd_isna(x) for x in (a_prev, b_prev, a_now, b_now)):
+                    return False
+                d_prev = a_prev - b_prev
+                d_now = a_now - b_now
+                return (
+                    (d_prev < 0 and d_now > 0)
+                    or
+                    (d_prev > 0 and d_now < 0)
+                    or
+                    d_prev == 0
+                    or
+                    d_now == 0
+                )
+
+            # Kod: ta.cross(longBand[1], smoothedRsi)
+            if i >= 2:
+                long_band_prev2 = long_band[i - 2]
+                sr_prev = smoothed_rsi.iloc[i - 1]
+                long_band_cross = crossed(
+                    long_band_prev2,
+                    sr_prev,
+                    previous_long,
+                    sr
+                )
+            else:
+                long_band_cross = False
+
+            # Kod: ta.cross(smoothedRsi, shortBand[1])
+            if i >= 2:
+                short_band_prev2 = short_band[i - 2]
+                short_band_cross = crossed(
+                    sr_prev,
+                    short_band_prev2,
+                    sr,
+                    previous_short
+                )
+            else:
+                short_band_cross = False
+
+            if short_band_cross:
+                current_trend = 1
+            elif long_band_cross:
+                current_trend = -1
+            else:
+                current_trend = previous_trend
+
+            long_band.append(current_long)
+            short_band.append(current_short)
+            trend_direction.append(current_trend)
+
+        long_series = pd.Series(
+            long_band,
+            index=df.index,
+            dtype="float64"
+        )
+
+        short_series = pd.Series(
+            short_band,
+            index=df.index,
+            dtype="float64"
+        )
+
+        trend_series = pd.Series(
+            trend_direction,
+            index=df.index,
+            dtype="int64"
+        )
+
+        qqe_trend_line = pd.Series(
+            [
+                long_series.iloc[i]
+                if trend_series.iloc[i] == 1
+                else short_series.iloc[i]
+                for i in range(len(df))
+            ],
+            index=df.index,
+            dtype="float64"
+        )
+
+        return qqe_trend_line, smoothed_rsi
+
+    primary_trend, primary_rsi = calculate_qqe(
+        df["Close"],
+        6,
+        5,
+        3.0
     )
+
+    secondary_trend, secondary_rsi = calculate_qqe(
+        df["Close"],
+        6,
+        5,
+        1.61
+    )
+
+    bollinger_source = (
+        primary_trend - 50
+    )
+
+    bollinger_basis = bollinger_source.rolling(
+        50
+    ).mean()
+
+    bollinger_deviation = (
+        0.35
+        * bollinger_source.rolling(
+            50
+        ).std(ddof=0)
+    )
+
+    bollinger_upper = (
+        bollinger_basis
+        + bollinger_deviation
+    )
+
+    # TradingView'deki mavi QQE Up Signal:
+    # secondaryRSI - 50 > 3
+    # AND primaryRSI - 50 > bollingerUpper
+    qqe_mavi = (
+        (secondary_rsi - 50 > 3.0)
+        &
+        (primary_rsi - 50 > bollinger_upper)
+    )
+
+    # Yeni mavi geçiş: önceki bar mavi değil,
+    # mevcut bar mavi. Mum kapanışı beklenmez;
+    # veri sağlayıcının son mevcut barı kullanılır.
+    qqe_yeni_mavi = (
+        qqe_mavi
+        &
+        ~qqe_mavi.shift(1).fillna(False).astype(bool)
+    )
+
+    return {
+        "primary_rsi": primary_rsi,
+        "secondary_rsi": secondary_rsi,
+        "primary_trend": primary_trend,
+        "secondary_trend": secondary_trend,
+        "bollinger_upper": bollinger_upper,
+        "qqe_mavi": qqe_mavi,
+        "qqe_yeni_mavi": qqe_yeni_mavi
+    }
+
+
+def pd_isna(value):
+    try:
+        return bool(pd.isna(value))
+    except Exception:
+        return False
 
 
 def analiz_et(symbol):
@@ -796,6 +982,8 @@ def analiz_et(symbol):
                 df
             )
         )
+
+        qqe = qqe_hesapla(df)
 
         df["BASE"] = (
             df["High"]
@@ -903,12 +1091,21 @@ def analiz_et(symbol):
             onceki["RSI14"]
         )
 
+        qqe_mavi = bool(
+            qqe["qqe_mavi"].iloc[-1]
+        )
+
+        qqe_yeni_mavi = bool(
+            qqe["qqe_yeni_mavi"].iloc[-1]
+        )
+
         if not (
             ichimoku_sinyal
             and fiyat_ema_sinyal
             and ema_yukseliyor
             and rsi_50_cross
             and rsi_yukseliyor
+            and qqe_yeni_mavi
         ):
             return None
 
@@ -991,6 +1188,10 @@ def analiz_et(symbol):
 
             "adx14": adx,
 
+            "qqe_mavi": qqe_mavi,
+
+            "qqe_yeni_mavi": qqe_yeni_mavi,
+
             "stop":
                 stop_fiyat,
 
@@ -1032,17 +1233,6 @@ def analiz_et(symbol):
                     "yakin_ust"
                 ]
         }
-
-        sonuc["sinyal_gucu"] = (
-            sinyal_gucu_hesapla(
-                rsi14,
-                adx,
-                sonuc["ema_mesafe"],
-                bir_haftalik_degisim,
-                hacim,
-                ortalama_hacim_20
-            )
-        )
 
         return sonuc
 
@@ -1425,19 +1615,17 @@ def main():
             f"🟢 YENİ : {symbol}"
             f"                   ADX "
             f"{adx_isaret} "
-            f"{adx_deger:.1f}\n"
-
-            f"⭐ Sinyal Gücü: "
-            f"{sonuc['sinyal_gucu']}/100\n\n"
+            f"{adx_deger:.1f}\n\n"
 
             f"💰 Giriş: "
-            f"{fiyat:.2f} TL\n"
+            f"{fiyat:.2f} TL"
+            f"                  🔵 QQE: MAVİ\n"
 
             f"{gunluk_isaret} Günlük: "
             f"{sonuc['daily_change']:+.2f}%\n"
 
             f"{hafta_isaret} 1 Hafta: "
-            f"{sonuc['weekly_change']:+.2f}%\n"
+            f"{sonuc['weekly_change']:+.2f}%\n\n"
 
             f"📏 EMA14: "
             f"{sonuc['ema14']:.2f} TL "
