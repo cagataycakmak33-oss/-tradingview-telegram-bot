@@ -7,6 +7,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
@@ -18,7 +19,7 @@ ADX_PERIOD = 14
 
 EMA_MIN_DISTANCE = 0.02
 
-# TradingView ile aynı mantık:
+# TradingView "Çağatay" göstergesi ile aynı mantık:
 # Son 100 günlük mum içerisindeki dip ve tepe
 FIB_LOOKBACK = 100
 
@@ -33,27 +34,26 @@ ANA_PAZAR = {
     "ADEL","CEMAS","GARFA","LXGYO","PRZMA","ADESE","CEMTS","GEDZA","LYDYE","PSDTC",
     "AFYON","CEOEM","GENKM","MAALT","RAYSG","AHSGY","CMBTN","GEREL","MACKO","RTALB",
     "AKENR","CONSE","GLRYH","MAKIM","RUBNS","AKHAN","CRFSA","GOODY","MAKTK","RUZYE",
-    "AKMGY","CUSAN","GSDDE","MANAS","SANFM","AKSUE","DAGI","GSDHO","MARBL","SANKO",
-    "ALCAR","DARDL","GUNDG","MARKA","SAYAS","ALCTL","DCTTR","GZNMI","MARMR","SEGMN",
-    "ALKA","DENGE","HATEK","MARTI","SEGYO","ALKIM","DERHL","HDFGS","MCARD","SELVA",
-    "ALKLC","DERIM","HEDEF","MEDTR","SERNT","ALVES","DESA","HKTM","MEKAG","SKTAS",
-    "ANELE","DESPC","HOROZ","MERCN","SKYMD","ANGEN","DGATE","HUNER","MERCN","SMART",
-    "ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU","SNICA",
-    "ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS","SVGYO",
-    "ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO","TBORG",
-    "AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO","TEKTU",
-    "AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS","TGSAS",
-    "BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM","TSGYO",
+    "AKMGY","CUSAN","GSDDE","GSDHO","MANAS","SANFM","AKSUE","DAGI","GSDHO","MARBL",
+    "SANKO","ALCAR","DARDL","GUNDG","MARKA","SAYAS","ALCTL","DCTTR","GZNMI","MARMR",
+    "SEGMN","ALKA","DENGE","HATEK","MARTI","SEGYO","ALKIM","DERHL","HDFGS","MCARD",
+    "SELVA","ALKLC","DERIM","HEDEF","MEDTR","SERNT","ALVES","DESA","HKTM","MEKAG",
+    "SKTAS","ANELE","DESPC","HOROZ","MERCN","SKYMD","ANGEN","DGATE","HUNER","MERCN",
+    "SMART","ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU",
+    "SNICA","ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS",
+    "SVGYO","ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO",
+    "TBORG","AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO",
+    "TEKTU","AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS",
+    "TGSAS","BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM",
     "BAKAB","EDIP","IZINV","ONCSM","TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG",
     "BAYRK","EGEPO","JANTS","KAPLM","OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO",
     "ULUFA","BESTE","EKOS","KFEIN","ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU",
     "BIGCH","ELITE","KIMMR","OZYSR","VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU",
-    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","VKING",
-    "BLUME","EPLAS","KNFRT","PENGD","VRGYO","BMSCH","ERBOS","KONKA","PETUN","YAPRK",
-    "BMSTL","ERCB","KRONT","KRPLS","PINSU","YIGIT","BNTAS","ESCOM","ETILR","KRSTL",
-    "YAYLA","BRKVY","EYGYO","KRVGD","PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR",
-    "YKSLN","BULGS","FMIZP","KUTPO","PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN",
-    "FORMT","FORTE","LIDFA"
+    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","PENGD",
+    "VRGYO","BMSCH","ERBOS","KONKA","PETUN","YAPRK","BMSTL","ERCB","KRONT","KRPLS",
+    "PINSU","YIGIT","YAYLA","BNTAS","ESCOM","ETILR","KRSTL","BRKVY","EYGYO","KRVGD",
+    "PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR","YKSLN","BULGS","FMIZP","KUTPO",
+    "PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN","FORMT","FORTE","LIDFA"
 }
 
 
@@ -460,24 +460,20 @@ def veri_al(symbol):
 
 # =====================================================
 # FIBONACCI
+# TradingView "Çağatay" göstergesi ile aynı mantık
 # =====================================================
 
 def fibonacci_seviyeleri(df):
 
-    if len(df) < FIB_LOOKBACK:
+    if df is None or len(df) < FIB_LOOKBACK:
         return None
 
-    son_df = df.tail(
+    fib_df = df.tail(
         FIB_LOOKBACK
     ).copy()
 
-    high_series = (
-        son_df["High"]
-    )
-
-    low_series = (
-        son_df["Low"]
-    )
+    high_series = fib_df["High"]
+    low_series = fib_df["Low"]
 
     fib_high = float(
         high_series.max()
@@ -487,72 +483,176 @@ def fibonacci_seviyeleri(df):
         low_series.min()
     )
 
-    if fib_high <= fib_low:
-        return None
-
-    # Gerçek dip / tepe konumları
-    high_index = (
-        high_series.idxmax()
-    )
-
-    low_index = (
-        low_series.idxmin()
-    )
-
-    # Kronolojik yön
-    # Dip daha eskiyse yükseliş
-    # Tepe daha eskiyse düşüş
-    yukselis = (
-        low_index < high_index
-    )
-
-    aralik = (
+    fib_range = (
         fib_high - fib_low
     )
 
-    oranlar = [
-        ("0.000", 0.000),
-        ("0.236", 0.236),
-        ("0.382", 0.382),
-        ("0.500", 0.500),
-        ("0.618", 0.618),
-        ("0.786", 0.786),
-        ("1.000", 1.000)
-    ]
+    if fib_range <= 0:
+        return None
 
-    seviyeler = {}
+    # =================================================
+    # TradingView ta.highestbars / ta.lowestbars
+    #
+    # Pine'da offset:
+    # 0 = mevcut mum
+    # 1 = bir önceki mum
+    # 2 = iki mum önce...
+    #
+    # Eşit değerlerde Pine'ın en yakın/son oluşumu
+    # dikkate alması için seriyi sondan tarıyoruz.
+    # =================================================
 
-    for oran, katsayi in oranlar:
+    high_position = (
+        len(fib_df)
+        - 1
+        -
+        high_series.iloc[::-1].values.argmax()
+    )
 
-        if yukselis:
+    low_position = (
+        len(fib_df)
+        - 1
+        -
+        low_series.iloc[::-1].values.argmin()
+    )
 
-            seviye = (
-                fib_low
-                +
-                aralik * katsayi
-            )
+    son_position = len(fib_df) - 1
 
-        else:
+    high_offset = (
+        son_position - high_position
+    )
 
-            seviye = (
-                fib_high
-                -
-                aralik * katsayi
-            )
+    low_offset = (
+        son_position - low_position
+    )
 
-        seviyeler[oran] = float(
-            seviye
+    # TradingView:
+    #
+    # revfibs = not Reverse ? lowOffset > highOffset : ...
+    #
+    # Reverse = false
+    revfibs = (
+        low_offset > high_offset
+    )
+
+    # =================================================
+    # TradingView "Çağatay" FIB FORMÜLLERİ
+    # =================================================
+
+    if revfibs:
+
+        fib000 = (
+            fib_range * 0.000
+            + fib_low
         )
 
+        fib236 = (
+            fib_range * 0.236
+            + fib_low
+        )
+
+        fib382 = (
+            fib_range * 0.382
+            + fib_low
+        )
+
+        fib500 = (
+            fib_range * 0.500
+            + fib_low
+        )
+
+        fib618 = (
+            fib_range * 0.618
+            + fib_low
+        )
+
+        fib786 = (
+            fib_range * 0.786
+            + fib_low
+        )
+
+        fib100 = (
+            fib_range * 1.000
+            + fib_low
+        )
+
+    else:
+
+        fib000 = (
+            fib_high
+            - fib_range * 0.000
+        )
+
+        fib236 = (
+            fib_high
+            - fib_range * 0.236
+        )
+
+        fib382 = (
+            fib_high
+            - fib_range * 0.382
+        )
+
+        fib500 = (
+            fib_high
+            - fib_range * 0.500
+        )
+
+        fib618 = (
+            fib_high
+            - fib_range * 0.618
+        )
+
+        fib786 = (
+            fib_high
+            - fib_range * 0.786
+        )
+
+        fib100 = (
+            fib_high
+            - fib_range * 1.000
+        )
+
+    seviyeler = {
+
+        "0.000": float(fib000),
+
+        "0.236": float(fib236),
+
+        "0.382": float(fib382),
+
+        "0.500": float(fib500),
+
+        "0.618": float(fib618),
+
+        "0.786": float(fib786),
+
+        "1.000": float(fib100)
+
+    }
+
     return {
+
         "high": fib_high,
+
         "low": fib_low,
+
+        "range": fib_range,
+
+        "high_offset": high_offset,
+
+        "low_offset": low_offset,
+
+        "revfibs": revfibs,
+
         "yon": (
             "yukselis"
-            if yukselis
+            if revfibs
             else "dus"
         ),
+
         "seviyeler": seviyeler
+
     }
 
 
@@ -569,12 +669,16 @@ def fib_analiz(df, fiyat):
         "seviyeler"
     ]
 
-    # Fiyatın altındaki en yakın Fib
+    # =================================================
+    # Fiyatın altındaki EN YAKIN Fib
+    # =================================================
+
     alt = []
 
     for oran, seviye in seviyeler.items():
 
         if seviye < fiyat:
+
             alt.append(
                 (
                     seviye,
@@ -593,7 +697,10 @@ def fib_analiz(df, fiyat):
         else None
     )
 
+    # =================================================
     # Fiyatın üstündeki Fib seviyeleri
+    # =================================================
+
     ust = []
 
     for oran, seviye in seviyeler.items():
@@ -601,8 +708,11 @@ def fib_analiz(df, fiyat):
         if seviye > fiyat:
 
             kar_yuzdesi = (
-                (seviye - fiyat)
-                / fiyat
+                (
+                    seviye - fiyat
+                )
+                /
+                fiyat
             ) * 100
 
             ust.append(
@@ -617,24 +727,32 @@ def fib_analiz(df, fiyat):
         key=lambda x: x[0]
     )
 
-    # Fiyatın üzerinde bulunan en yakın Fib
     yakin_ust = (
         ust[0]
         if ust
         else None
     )
 
-    # Tepe / 1.000 potansiyeli
+    # =================================================
+    # 1.000 TEPE POTANSİYELİ
+    # =================================================
+
     fib100 = seviyeler[
         "1.000"
     ]
 
     tepe_potansiyel = (
-        (fib100 - fiyat)
-        / fiyat
+        (
+            fib100 - fiyat
+        )
+        /
+        fiyat
     ) * 100
 
-    # Fiyat hangi iki Fib arasında?
+    # =================================================
+    # Fiyata EN YAKIN Fib
+    # =================================================
+
     fiyat_seviyesi = None
 
     en_yakin_mesafe = None
@@ -647,28 +765,46 @@ def fib_analiz(df, fiyat):
 
         if (
             en_yakin_mesafe is None
-            or mesafe < en_yakin_mesafe
+            or
+            mesafe < en_yakin_mesafe
         ):
 
             en_yakin_mesafe = mesafe
+
             fiyat_seviyesi = oran
 
     return {
+
         "fib": fib,
+
         "seviyeler": seviyeler,
+
         "stop": stop_bilgi,
+
         "yakin_ust": yakin_ust,
-        "tepe_potansiyel": tepe_potansiyel,
-        "fiyat_seviyesi": fiyat_seviyesi
+
+        "tepe_potansiyel":
+            tepe_potansiyel,
+
+        "fiyat_seviyesi":
+            fiyat_seviyesi
+
     }
 
 
-
 def pine_rsi(close, length):
+
     """TradingView ta.rsi'ye uygun Wilder RMA tabanlı RSI."""
+
     delta = close.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
+
+    gain = delta.clip(
+        lower=0
+    )
+
+    loss = -delta.clip(
+        upper=0
+    )
 
     avg_gain = gain.ewm(
         alpha=1 / length,
@@ -680,8 +816,24 @@ def pine_rsi(close, length):
         adjust=False
     ).mean()
 
-    rs = avg_gain / avg_loss.replace(0, float("nan"))
-    rsi = 100 - (100 / (1 + rs))
+    rs = (
+        avg_gain
+        /
+        avg_loss.replace(
+            0,
+            float("nan")
+        )
+    )
+
+    rsi = (
+        100
+        -
+        (
+            100
+            /
+            (1 + rs)
+        )
+    )
 
     rsi = rsi.where(
         avg_loss != 0,
@@ -692,11 +844,19 @@ def pine_rsi(close, length):
 
 
 def qqe_hesapla(df):
+
     """QQE MOD'un mavi sinyalini TradingView kodundaki mantıkla hesaplar."""
 
-    def calculate_qqe(source, rsi_length, smoothing_factor, qqe_factor):
+    def calculate_qqe(
+        source,
+        rsi_length,
+        smoothing_factor,
+        qqe_factor
+    ):
 
-        wilders_length = rsi_length * 2 - 1
+        wilders_length = (
+            rsi_length * 2 - 1
+        )
 
         rsi = pine_rsi(
             source,
@@ -710,130 +870,243 @@ def qqe_hesapla(df):
 
         atr_rsi = (
             smoothed_rsi.shift(1)
-            - smoothed_rsi
+            -
+            smoothed_rsi
         ).abs()
 
-        smoothed_atr_rsi = atr_rsi.ewm(
-            span=wilders_length,
-            adjust=False
-        ).mean()
+        smoothed_atr_rsi = (
+            atr_rsi.ewm(
+                span=wilders_length,
+                adjust=False
+            ).mean()
+        )
 
         dynamic_atr_rsi = (
             smoothed_atr_rsi
-            * qqe_factor
+            *
+            qqe_factor
         )
 
         long_band = []
+
         short_band = []
+
         trend_direction = []
 
         for i in range(len(df)):
 
             sr = smoothed_rsi.iloc[i]
+
             atr = dynamic_atr_rsi.iloc[i]
 
             if i == 0:
-                previous_long = 0.0
-                previous_short = 0.0
-                previous_trend = 0
-                previous_sr = float("nan")
-            else:
-                previous_long = long_band[i - 1]
-                previous_short = short_band[i - 1]
-                previous_trend = trend_direction[i - 1]
-                previous_sr = smoothed_rsi.iloc[i - 1]
 
-            if pd_isna(sr) or pd_isna(atr):
+                previous_long = 0.0
+
+                previous_short = 0.0
+
+                previous_trend = 0
+
+                previous_sr = float("nan")
+
+            else:
+
+                previous_long = (
+                    long_band[i - 1]
+                )
+
+                previous_short = (
+                    short_band[i - 1]
+                )
+
+                previous_trend = (
+                    trend_direction[i - 1]
+                )
+
+                previous_sr = (
+                    smoothed_rsi.iloc[i - 1]
+                )
+
+            if (
+                pd_isna(sr)
+                or
+                pd_isna(atr)
+            ):
+
                 long_band.append(
                     float("nan")
                 )
+
                 short_band.append(
                     float("nan")
                 )
+
                 trend_direction.append(
                     previous_trend
                 )
+
                 continue
 
-            new_short_band = sr + atr
-            new_long_band = sr - atr
+            new_short_band = (
+                sr + atr
+            )
+
+            new_long_band = (
+                sr - atr
+            )
 
             if (
                 not pd_isna(previous_sr)
-                and previous_sr > previous_long
-                and sr > previous_long
+                and
+                previous_sr > previous_long
+                and
+                sr > previous_long
             ):
+
                 current_long = max(
                     previous_long,
                     new_long_band
                 )
+
             else:
-                current_long = new_long_band
+
+                current_long = (
+                    new_long_band
+                )
 
             if (
                 not pd_isna(previous_sr)
-                and previous_sr < previous_short
-                and sr < previous_short
+                and
+                previous_sr < previous_short
+                and
+                sr < previous_short
             ):
+
                 current_short = min(
                     previous_short,
                     new_short_band
                 )
-            else:
-                current_short = new_short_band
 
-            # Pine ta.cross(x, y): önceki fark ile güncel farkın
-            # zıt işaretli olması veya sıfırdan geçmesi.
-            def crossed(a_prev, b_prev, a_now, b_now):
-                if any(pd_isna(x) for x in (a_prev, b_prev, a_now, b_now)):
+            else:
+
+                current_short = (
+                    new_short_band
+                )
+
+            def crossed(
+                a_prev,
+                b_prev,
+                a_now,
+                b_now
+            ):
+
+                if any(
+                    pd_isna(x)
+                    for x in (
+                        a_prev,
+                        b_prev,
+                        a_now,
+                        b_now
+                    )
+                ):
+
                     return False
-                d_prev = a_prev - b_prev
-                d_now = a_now - b_now
+
+                d_prev = (
+                    a_prev - b_prev
+                )
+
+                d_now = (
+                    a_now - b_now
+                )
+
                 return (
-                    (d_prev < 0 and d_now > 0)
+                    (
+                        d_prev < 0
+                        and
+                        d_now > 0
+                    )
                     or
-                    (d_prev > 0 and d_now < 0)
+                    (
+                        d_prev > 0
+                        and
+                        d_now < 0
+                    )
                     or
                     d_prev == 0
                     or
                     d_now == 0
                 )
 
-            # Kod: ta.cross(longBand[1], smoothedRsi)
+            # Pine:
+            # ta.cross(longBand[1], smoothedRsi)
+
             if i >= 2:
-                long_band_prev2 = long_band[i - 2]
-                sr_prev = smoothed_rsi.iloc[i - 1]
+
+                long_band_prev2 = (
+                    long_band[i - 2]
+                )
+
+                sr_prev = (
+                    smoothed_rsi.iloc[i - 1]
+                )
+
                 long_band_cross = crossed(
                     long_band_prev2,
                     sr_prev,
                     previous_long,
                     sr
                 )
+
             else:
+
                 long_band_cross = False
 
-            # Kod: ta.cross(smoothedRsi, shortBand[1])
+            # Pine:
+            # ta.cross(smoothedRsi, shortBand[1])
+
             if i >= 2:
-                short_band_prev2 = short_band[i - 2]
+
+                short_band_prev2 = (
+                    short_band[i - 2]
+                )
+
                 short_band_cross = crossed(
                     sr_prev,
                     short_band_prev2,
                     sr,
                     previous_short
                 )
+
             else:
+
                 short_band_cross = False
 
             if short_band_cross:
-                current_trend = 1
-            elif long_band_cross:
-                current_trend = -1
-            else:
-                current_trend = previous_trend
 
-            long_band.append(current_long)
-            short_band.append(current_short)
-            trend_direction.append(current_trend)
+                current_trend = 1
+
+            elif long_band_cross:
+
+                current_trend = -1
+
+            else:
+
+                current_trend = (
+                    previous_trend
+                )
+
+            long_band.append(
+                current_long
+            )
+
+            short_band.append(
+                current_short
+            )
+
+            trend_direction.append(
+                current_trend
+            )
 
         long_series = pd.Series(
             long_band,
@@ -864,7 +1137,10 @@ def qqe_hesapla(df):
             dtype="float64"
         )
 
-        return qqe_trend_line, smoothed_rsi
+        return (
+            qqe_trend_line,
+            smoothed_rsi
+        )
 
     primary_trend, primary_rsi = calculate_qqe(
         df["Close"],
@@ -884,55 +1160,83 @@ def qqe_hesapla(df):
         primary_trend - 50
     )
 
-    bollinger_basis = bollinger_source.rolling(
-        50
-    ).mean()
+    bollinger_basis = (
+        bollinger_source
+        .rolling(50)
+        .mean()
+    )
 
     bollinger_deviation = (
         0.35
-        * bollinger_source.rolling(
-            50
-        ).std(ddof=0)
+        *
+        bollinger_source
+        .rolling(50)
+        .std(ddof=0)
     )
 
     bollinger_upper = (
         bollinger_basis
-        + bollinger_deviation
+        +
+        bollinger_deviation
     )
 
-    # TradingView'deki mavi QQE Up Signal:
-    # secondaryRSI - 50 > 3
-    # AND primaryRSI - 50 > bollingerUpper
     qqe_mavi = (
-        (secondary_rsi - 50 > 3.0)
+        (
+            secondary_rsi - 50
+            > 3.0
+        )
         &
-        (primary_rsi - 50 > bollinger_upper)
+        (
+            primary_rsi - 50
+            >
+            bollinger_upper
+        )
     )
 
-    # Yeni mavi geçiş: önceki bar mavi değil,
-    # mevcut bar mavi. Mum kapanışı beklenmez;
-    # veri sağlayıcının son mevcut barı kullanılır.
     qqe_yeni_mavi = (
         qqe_mavi
         &
-        ~qqe_mavi.shift(1).fillna(False).astype(bool)
+        ~qqe_mavi.shift(1)
+        .fillna(False)
+        .astype(bool)
     )
 
     return {
-        "primary_rsi": primary_rsi,
-        "secondary_rsi": secondary_rsi,
-        "primary_trend": primary_trend,
-        "secondary_trend": secondary_trend,
-        "bollinger_upper": bollinger_upper,
-        "qqe_mavi": qqe_mavi,
-        "qqe_yeni_mavi": qqe_yeni_mavi
+
+        "primary_rsi":
+            primary_rsi,
+
+        "secondary_rsi":
+            secondary_rsi,
+
+        "primary_trend":
+            primary_trend,
+
+        "secondary_trend":
+            secondary_trend,
+
+        "bollinger_upper":
+            bollinger_upper,
+
+        "qqe_mavi":
+            qqe_mavi,
+
+        "qqe_yeni_mavi":
+            qqe_yeni_mavi
+
     }
 
 
 def pd_isna(value):
+
     try:
-        return bool(pd.isna(value))
+
+        return bool(
+            pd.isna(value)
+        )
+
     except Exception:
+
         return False
 
 
@@ -962,6 +1266,7 @@ def analiz_et(symbol):
         if not gerekli.issubset(
             df.columns
         ):
+
             return None
 
         df["EMA14"] = (
@@ -983,7 +1288,9 @@ def analiz_et(symbol):
             )
         )
 
-        qqe = qqe_hesapla(df)
+        qqe = qqe_hesapla(
+            df
+        )
 
         df["BASE"] = (
             df["High"]
@@ -1009,7 +1316,9 @@ def analiz_et(symbol):
             return None
 
         onceki = df.iloc[-2]
+
         son = df.iloc[-1]
+
         hafta_once = df.iloc[-6]
 
         bir_haftalik_degisim = (
@@ -1031,26 +1340,35 @@ def analiz_et(symbol):
         ) * 100
 
         try:
+
             hacim = float(
                 son["Volume"]
             )
+
         except Exception:
+
             hacim = 0.0
 
         try:
+
             ortalama_hacim_20 = float(
                 son[
                     "AVG_VOLUME_20"
                 ]
             )
+
         except Exception:
+
             ortalama_hacim_20 = 0.0
 
         try:
+
             adx = float(
                 son["ADX14"]
             )
+
         except Exception:
+
             adx = 0.0
 
         ichimoku_sinyal = (
@@ -1092,21 +1410,31 @@ def analiz_et(symbol):
         )
 
         qqe_mavi = bool(
-            qqe["qqe_mavi"].iloc[-1]
+            qqe[
+                "qqe_mavi"
+            ].iloc[-1]
         )
 
         qqe_yeni_mavi = bool(
-            qqe["qqe_yeni_mavi"].iloc[-1]
+            qqe[
+                "qqe_yeni_mavi"
+            ].iloc[-1]
         )
 
         if not (
             ichimoku_sinyal
-            and fiyat_ema_sinyal
-            and ema_yukseliyor
-            and rsi_50_cross
-            and rsi_yukseliyor
-            and qqe_yeni_mavi
+            and
+            fiyat_ema_sinyal
+            and
+            ema_yukseliyor
+            and
+            rsi_50_cross
+            and
+            rsi_yukseliyor
+            and
+            qqe_yeni_mavi
         ):
+
             return None
 
         fiyat = float(
@@ -1122,7 +1450,7 @@ def analiz_et(symbol):
         )
 
         # =================================================
-        # YENİ FIB ANALİZİ
+        # FIB ANALİZİ
         # =================================================
 
         fib_sonuc = fib_analiz(
@@ -1138,10 +1466,12 @@ def analiz_et(symbol):
         )
 
         if stop_bilgi is None:
+
             print(
                 f"{symbol}: "
                 "Fiyat altında Fib stop bulunamadı."
             )
+
             return None
 
         stop_fiyat = (
@@ -1154,9 +1484,11 @@ def analiz_et(symbol):
 
         sonuc = {
 
-            "symbol": symbol,
+            "symbol":
+                symbol,
 
-            "price": fiyat,
+            "price":
+                fiyat,
 
             "daily_change":
                 float(
@@ -1168,29 +1500,36 @@ def analiz_et(symbol):
                     bir_haftalik_degisim
                 ),
 
-            "volume": hacim,
+            "volume":
+                hacim,
 
             "avg_volume_20":
                 ortalama_hacim_20,
 
-            "ema14": ema14,
+            "ema14":
+                ema14,
 
-            "ema_mesafe": (
+            "ema_mesafe":
                 (
-                    fiyat
-                    /
-                    ema14
-                )
-                - 1
-            ) * 100,
+                    (
+                        fiyat
+                        /
+                        ema14
+                    )
+                    - 1
+                ) * 100,
 
-            "rsi14": rsi14,
+            "rsi14":
+                rsi14,
 
-            "adx14": adx,
+            "adx14":
+                adx,
 
-            "qqe_mavi": qqe_mavi,
+            "qqe_mavi":
+                qqe_mavi,
 
-            "qqe_yeni_mavi": qqe_yeni_mavi,
+            "qqe_yeni_mavi":
+                qqe_yeni_mavi,
 
             "stop":
                 stop_fiyat,
@@ -1232,6 +1571,7 @@ def analiz_et(symbol):
                 fib_sonuc[
                     "yakin_ust"
                 ]
+
         }
 
         return sonuc
@@ -1259,7 +1599,8 @@ def yuzde_mesafe(
     return (
         (
             seviye
-            - fiyat
+            -
+            fiyat
         )
         /
         fiyat
@@ -1273,15 +1614,17 @@ def fib_satiri(
     fiyat_fib
 ):
 
-    # Fiyatın bulunduğu seviyeyi
-    # yeşil ok ile gösteriyoruz.
+    # TradingView FIB seviyesinin
+    # fiyatın altında veya fiyatla aynı
+    # olması durumunda yeşil ok.
 
-    if oran == fiyat_fib:
+    if seviye <= fiyat:
 
         potansiyel = (
             (
                 seviye
-                - fiyat
+                -
+                fiyat
             )
             /
             fiyat
@@ -1295,29 +1638,23 @@ def fib_satiri(
         )
 
     # Fiyatın üzerindeki seviyelerde
-    # kâr yüzdesini göster.
+    # hedef/kâr yüzdesi.
 
-    if seviye > fiyat:
-
-        potansiyel = (
-            (
-                seviye
-                - fiyat
-            )
-            /
+    potansiyel = (
+        (
+            seviye
+            -
             fiyat
-        ) * 100
-
-        return (
-            f"{oran} → "
-            f"{seviye:.2f} TL"
-            f"  |  "
-            f"{potansiyel:+.2f}%"
         )
+        /
+        fiyat
+    ) * 100
 
     return (
         f"{oran} → "
         f"{seviye:.2f} TL"
+        f"  |  "
+        f"{potansiyel:+.2f}%"
     )
 
 
@@ -1434,7 +1771,7 @@ def main():
     )
 
     print(
-        "📐 Fibonacci: Son 100 günlük dip/tepe"
+        "📐 Fibonacci: TradingView Çağatay / Son 100 günlük dip-tepe"
     )
 
     print(
@@ -1514,7 +1851,8 @@ def main():
         datetime.now(
             ISTANBUL
         )
-        - baslangic_zamani
+        -
+        baslangic_zamani
     ).total_seconds()
 
     print(
@@ -1637,13 +1975,20 @@ def main():
             f"📐 FIB SEVİYELERİ\n\n"
 
             f"{fib_satiri('1.000', fibler['1.000'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.786', fibler['0.786'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.618', fibler['0.618'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.500', fibler['0.500'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.382', fibler['0.382'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.236', fibler['0.236'], fiyat, fiyat_fib)}\n"
+
             f"{fib_satiri('0.000', fibler['0.000'], fiyat, fiyat_fib)}\n\n"
-f"🛑 STOP\n"
+
+            f"🛑 STOP\n"
 
             f"{stop_fib} → "
             f"{stop:.2f} TL\n\n"
