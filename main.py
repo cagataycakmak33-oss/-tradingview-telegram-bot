@@ -1,3 +1,4 @@
+```python
 import os
 import time
 import requests
@@ -42,18 +43,18 @@ ANA_PAZAR = {
     "SMART","ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU",
     "SNICA","ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS",
     "SVGYO","ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO",
-    "TBORG","AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO",
-    "TEKTU","AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS",
-    "TGSAS","BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM",
-    "BAKAB","EDIP","IZINV","ONCSM","TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG",
-    "BAYRK","EGEPO","JANTS","KAPLM","OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO",
-    "ULUFA","BESTE","EKOS","KFEIN","ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU",
-    "BIGCH","ELITE","KIMMR","OZYSR","VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU",
-    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","PENGD",
-    "VRGYO","BMSCH","ERBOS","KONKA","PETUN","YAPRK","BMSTL","ERCB","KRONT","KRPLS",
-    "PINSU","YIGIT","YAYLA","BNTAS","ESCOM","ETILR","KRSTL","BRKVY","EYGYO","KRVGD",
-    "PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR","YKSLN","BULGS","FMIZP","KUTPO",
-    "PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN","FORMT","FORTE","LIDFA"
+    "TBORG","AVOD","DOKTA","DUNYH","INFO","MSGYO","TEKTU","AYEN","DURDO","INGRM",
+    "MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS","TGSAS","BAGFS","DYOBY","DZGYO",
+    "ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM","BAKAB","EDIP","IZINV","ONCSM",
+    "TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG","BAYRK","EGEPO","JANTS","KAPLM",
+    "OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO","ULUFA","BESTE","EKOS","KFEIN",
+    "ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU","BIGCH","ELITE","KIMMR","OZYSR",
+    "VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU","BIZIM","EMPAE","PCILT","VERUS",
+    "BLCYT","ENSRI","KLSYN","PEKGY","PENGD","VRGYO","BMSCH","ERBOS","KONKA","PETUN",
+    "YAPRK","BMSTL","ERCB","KRONT","KRPLS","PINSU","YIGIT","YAYLA","BNTAS","ESCOM",
+    "ETILR","KRSTL","BRKVY","EYGYO","KRVGD","PKENT","YESIL","BRLSM","FADE","KTSKR",
+    "PLTUR","YKSLN","BULGS","FMIZP","KUTPO","PNLSN","BURCE","FONET","PRDGS","ZGYO",
+    "BVSAN","FORMT","FORTE","LIDFA"
 }
 
 
@@ -65,7 +66,6 @@ def gonderilenleri_oku():
         return set()
 
     try:
-
         kayitlar = set()
 
         with open(
@@ -490,18 +490,6 @@ def fibonacci_seviyeleri(df):
     if fib_range <= 0:
         return None
 
-    # =================================================
-    # TradingView ta.highestbars / ta.lowestbars
-    #
-    # Pine'da offset:
-    # 0 = mevcut mum
-    # 1 = bir önceki mum
-    # 2 = iki mum önce...
-    #
-    # Eşit değerlerde Pine'ın en yakın/son oluşumu
-    # dikkate alması için seriyi sondan tarıyoruz.
-    # =================================================
-
     high_position = (
         len(fib_df)
         - 1
@@ -526,18 +514,9 @@ def fibonacci_seviyeleri(df):
         son_position - low_position
     )
 
-    # TradingView:
-    #
-    # revfibs = not Reverse ? lowOffset > highOffset : ...
-    #
-    # Reverse = false
     revfibs = (
         low_offset > high_offset
     )
-
-    # =================================================
-    # TradingView "Çağatay" FIB FORMÜLLERİ
-    # =================================================
 
     if revfibs:
 
@@ -616,17 +595,11 @@ def fibonacci_seviyeleri(df):
     seviyeler = {
 
         "0.000": float(fib000),
-
         "0.236": float(fib236),
-
         "0.382": float(fib382),
-
         "0.500": float(fib500),
-
         "0.618": float(fib618),
-
         "0.786": float(fib786),
-
         "1.000": float(fib100)
 
     }
@@ -634,15 +607,10 @@ def fibonacci_seviyeleri(df):
     return {
 
         "high": fib_high,
-
         "low": fib_low,
-
         "range": fib_range,
-
         "high_offset": high_offset,
-
         "low_offset": low_offset,
-
         "revfibs": revfibs,
 
         "yon": (
@@ -669,10 +637,6 @@ def fib_analiz(df, fiyat):
         "seviyeler"
     ]
 
-    # =================================================
-    # Fiyatın altındaki EN YAKIN Fib
-    # =================================================
-
     alt = []
 
     for oran, seviye in seviyeler.items():
@@ -696,10 +660,6 @@ def fib_analiz(df, fiyat):
         if alt
         else None
     )
-
-    # =================================================
-    # Fiyatın üstündeki Fib seviyeleri
-    # =================================================
 
     ust = []
 
@@ -733,10 +693,6 @@ def fib_analiz(df, fiyat):
         else None
     )
 
-    # =================================================
-    # 1.000 TEPE POTANSİYELİ
-    # =================================================
-
     fib100 = seviyeler[
         "1.000"
     ]
@@ -749,12 +705,7 @@ def fib_analiz(df, fiyat):
         fiyat
     ) * 100
 
-    # =================================================
-    # Fiyata EN YAKIN Fib
-    # =================================================
-
     fiyat_seviyesi = None
-
     en_yakin_mesafe = None
 
     for oran, seviye in seviyeler.items():
@@ -770,17 +721,13 @@ def fib_analiz(df, fiyat):
         ):
 
             en_yakin_mesafe = mesafe
-
             fiyat_seviyesi = oran
 
     return {
 
         "fib": fib,
-
         "seviyeler": seviyeler,
-
         "stop": stop_bilgi,
-
         "yakin_ust": yakin_ust,
 
         "tepe_potansiyel":
@@ -843,9 +790,12 @@ def pine_rsi(close, length):
     return rsi
 
 
-def qqe_hesapla(df):
+# =====================================================
+# QQE MOD
+# TradingView verdiğin Pine Script v6 mantığı
+# =====================================================
 
-    """QQE MOD'un mavi sinyalini TradingView kodundaki mantıkla hesaplar."""
+def qqe_hesapla(df):
 
     def calculate_qqe(
         source,
@@ -863,17 +813,21 @@ def qqe_hesapla(df):
             rsi_length
         )
 
+        # Pine: ta.ema(rsi, smoothingFactor)
         smoothed_rsi = rsi.ewm(
             span=smoothing_factor,
             adjust=False
         ).mean()
 
+        # Pine:
+        # math.abs(smoothedRsi[1] - smoothedRsi)
         atr_rsi = (
             smoothed_rsi.shift(1)
             -
             smoothed_rsi
         ).abs()
 
+        # Pine: ta.ema(atrRsi, wildersLength)
         smoothed_atr_rsi = (
             atr_rsi.ewm(
                 span=wilders_length,
@@ -888,25 +842,19 @@ def qqe_hesapla(df):
         )
 
         long_band = []
-
         short_band = []
-
         trend_direction = []
 
         for i in range(len(df)):
 
             sr = smoothed_rsi.iloc[i]
-
             atr = dynamic_atr_rsi.iloc[i]
 
             if i == 0:
 
                 previous_long = 0.0
-
                 previous_short = 0.0
-
                 previous_trend = 0
-
                 previous_sr = float("nan")
 
             else:
@@ -993,6 +941,7 @@ def qqe_hesapla(df):
                     new_short_band
                 )
 
+            # Pine ta.cross mantığı
             def crossed(
                 a_prev,
                 b_prev,
@@ -1071,6 +1020,10 @@ def qqe_hesapla(df):
                     short_band[i - 2]
                 )
 
+                sr_prev = (
+                    smoothed_rsi.iloc[i - 1]
+                )
+
                 short_band_cross = crossed(
                     sr_prev,
                     short_band_prev2,
@@ -1142,6 +1095,7 @@ def qqe_hesapla(df):
             smoothed_rsi
         )
 
+    # PRIMARY
     primary_trend, primary_rsi = calculate_qqe(
         df["Close"],
         6,
@@ -1149,6 +1103,7 @@ def qqe_hesapla(df):
         3.0
     )
 
+    # SECONDARY
     secondary_trend, secondary_rsi = calculate_qqe(
         df["Close"],
         6,
@@ -1156,16 +1111,20 @@ def qqe_hesapla(df):
         1.61
     )
 
+    # Pine:
+    # primaryQQETrendLine - 50
     bollinger_source = (
         primary_trend - 50
     )
 
+    # Pine: ta.sma(...)
     bollinger_basis = (
         bollinger_source
         .rolling(50)
         .mean()
     )
 
+    # Pine: 0.35 * ta.stdev(...)
     bollinger_deviation = (
         0.35
         *
@@ -1180,6 +1139,22 @@ def qqe_hesapla(df):
         bollinger_deviation
     )
 
+    bollinger_lower = (
+        bollinger_basis
+        -
+        bollinger_deviation
+    )
+
+    # =================================================
+    # PINE'DAKİ GERÇEK QQE RENK KOŞULLARI
+    # =================================================
+
+    # MAVİ:
+    #
+    # secondaryRSI - 50 > thresholdSecondary
+    # AND
+    # primaryRSI - 50 > bollingerUpper
+
     qqe_mavi = (
         (
             secondary_rsi - 50
@@ -1188,11 +1163,29 @@ def qqe_hesapla(df):
         &
         (
             primary_rsi - 50
-            >
-            bollinger_upper
+            > bollinger_upper
         )
     )
 
+    # KIRMIZI:
+    #
+    # secondaryRSI - 50 < -thresholdSecondary
+    # AND
+    # primaryRSI - 50 < bollingerLower
+
+    qqe_kirmizi = (
+        (
+            secondary_rsi - 50
+            < -3.0
+        )
+        &
+        (
+            primary_rsi - 50
+            < bollinger_lower
+        )
+    )
+
+    # Yeni mavi sinyal
     qqe_yeni_mavi = (
         qqe_mavi
         &
@@ -1200,6 +1193,33 @@ def qqe_hesapla(df):
         .fillna(False)
         .astype(bool)
     )
+
+    # Yeni kırmızı sinyal
+    qqe_yeni_kirmizi = (
+        qqe_kirmizi
+        &
+        ~qqe_kirmizi.shift(1)
+        .fillna(False)
+        .astype(bool)
+    )
+
+    # =================================================
+    # QQE RENK SINIFI
+    # =================================================
+
+    qqe_renk = pd.Series(
+        "GRI",
+        index=df.index,
+        dtype="object"
+    )
+
+    qqe_renk.loc[
+        qqe_mavi
+    ] = "MAVI"
+
+    qqe_renk.loc[
+        qqe_kirmizi
+    ] = "KIRMIZI"
 
     return {
 
@@ -1218,11 +1238,23 @@ def qqe_hesapla(df):
         "bollinger_upper":
             bollinger_upper,
 
+        "bollinger_lower":
+            bollinger_lower,
+
         "qqe_mavi":
             qqe_mavi,
 
+        "qqe_kirmizi":
+            qqe_kirmizi,
+
         "qqe_yeni_mavi":
-            qqe_yeni_mavi
+            qqe_yeni_mavi,
+
+        "qqe_yeni_kirmizi":
+            qqe_yeni_kirmizi,
+
+        "qqe_renk":
+            qqe_renk
 
     }
 
@@ -1238,6 +1270,17 @@ def pd_isna(value):
     except Exception:
 
         return False
+
+
+def qqe_renk_goster(renk):
+
+    if renk == "MAVI":
+        return "🔵 QQE: MAVİ"
+
+    if renk == "KIRMIZI":
+        return "🔴 QQE: KIRMIZI"
+
+    return "⚪ QQE: GRİ"
 
 
 def analiz_et(symbol):
@@ -1288,6 +1331,8 @@ def analiz_et(symbol):
             )
         )
 
+        # QQE hesaplanıyor fakat
+        # hisse seçim kriteri olarak kullanılmıyor.
         qqe = qqe_hesapla(
             df
         )
@@ -1316,9 +1361,7 @@ def analiz_et(symbol):
             return None
 
         onceki = df.iloc[-2]
-
         son = df.iloc[-1]
-
         hafta_once = df.iloc[-6]
 
         bir_haftalik_degisim = (
@@ -1371,6 +1414,11 @@ def analiz_et(symbol):
 
             adx = 0.0
 
+        # =================================================
+        # ANA TARAMA KRİTERLERİ
+        # QQE BURADA YOK
+        # =================================================
+
         ichimoku_sinyal = (
             onceki["BASE"]
             >=
@@ -1409,9 +1457,20 @@ def analiz_et(symbol):
             onceki["RSI14"]
         )
 
+        # =================================================
+        # QQE RENK BİLGİSİ
+        # SADECE GÖSTERİM AMAÇLI
+        # =================================================
+
         qqe_mavi = bool(
             qqe[
                 "qqe_mavi"
+            ].iloc[-1]
+        )
+
+        qqe_kirmizi = bool(
+            qqe[
+                "qqe_kirmizi"
             ].iloc[-1]
         )
 
@@ -1420,6 +1479,31 @@ def analiz_et(symbol):
                 "qqe_yeni_mavi"
             ].iloc[-1]
         )
+
+        qqe_yeni_kirmizi = bool(
+            qqe[
+                "qqe_yeni_kirmizi"
+            ].iloc[-1]
+        )
+
+        qqe_renk = str(
+            qqe[
+                "qqe_renk"
+            ].iloc[-1]
+        )
+
+        # =================================================
+        # DİKKAT:
+        #
+        # QQE ARTIK BU KOŞULUN İÇİNDE DEĞİL.
+        #
+        # HİSSE SEÇİMİNİ BELİRLEYENLER:
+        # 1. Ichimoku Base
+        # 2. Fiyat EMA14 +2%
+        # 3. EMA14 yükseliyor
+        # 4. RSI 50 yukarı kesiyor
+        # 5. RSI yükseliyor
+        # =================================================
 
         if not (
             ichimoku_sinyal
@@ -1431,8 +1515,6 @@ def analiz_et(symbol):
             rsi_50_cross
             and
             rsi_yukseliyor
-            and
-            qqe_yeni_mavi
         ):
 
             return None
@@ -1528,8 +1610,17 @@ def analiz_et(symbol):
             "qqe_mavi":
                 qqe_mavi,
 
+            "qqe_kirmizi":
+                qqe_kirmizi,
+
             "qqe_yeni_mavi":
                 qqe_yeni_mavi,
+
+            "qqe_yeni_kirmizi":
+                qqe_yeni_kirmizi,
+
+            "qqe_renk":
+                qqe_renk,
 
             "stop":
                 stop_fiyat,
@@ -1614,10 +1705,6 @@ def fib_satiri(
     fiyat_fib
 ):
 
-    # TradingView FIB seviyesinin
-    # fiyatın altında veya fiyatla aynı
-    # olması durumunda yeşil ok.
-
     if seviye <= fiyat:
 
         potansiyel = (
@@ -1636,9 +1723,6 @@ def fib_satiri(
             f"  |  "
             f"{potansiyel:+.2f}%"
         )
-
-    # Fiyatın üzerindeki seviyelerde
-    # hedef/kâr yüzdesi.
 
     potansiyel = (
         (
@@ -1776,6 +1860,14 @@ def main():
 
     print(
         "🛑 STOP: Fiyatın altındaki en yakın Fib"
+    )
+
+    print(
+        "🎨 QQE MOD: MAVİ / KIRMIZI / GRİ"
+    )
+
+    print(
+        "ℹ️ QQE tarama kriteri değil."
     )
 
     with ThreadPoolExecutor(
@@ -1945,6 +2037,14 @@ def main():
         )
 
         # =================================================
+        # QQE RENK
+        # =================================================
+
+        qqe_durum = qqe_renk_goster(
+            sonuc["qqe_renk"]
+        )
+
+        # =================================================
         # TELEGRAM MESAJI
         # =================================================
 
@@ -1957,7 +2057,7 @@ def main():
 
             f"💰 Giriş: "
             f"{fiyat:.2f} TL"
-            f"                  🔵 QQE: MAVİ\n"
+            f"                  {qqe_durum}\n"
 
             f"{gunluk_isaret} Günlük: "
             f"{sonuc['daily_change']:+.2f}%\n"
@@ -2031,3 +2131,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+```
