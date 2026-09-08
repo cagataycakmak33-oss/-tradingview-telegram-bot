@@ -16,10 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-# Günlük gönderim dosyası
 GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
-
-# Aylık MACD gönderim dosyası
 AYLIK_MACD_DOSYA = "gonderilen_aylik_macd.txt"
 
 EMA_PERIOD = 14
@@ -28,7 +25,6 @@ BASE_PERIOD = 26
 ADX_PERIOD = 14
 
 EMA_MIN_DISTANCE = 0.02
-
 FIB_LOOKBACK = 100
 
 MAX_WORKERS = 4
@@ -140,6 +136,7 @@ def gonderilenleri_oku():
         return set()
 
     sonuc = set()
+    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
 
     try:
         with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as f:
@@ -152,13 +149,8 @@ def gonderilenleri_oku():
                 parcalar = satir.split("|")
 
                 if len(parcalar) >= 2:
-                    tarih = parcalar[0]
-                    sembol = parcalar[1]
-
-                    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-
-                    if tarih == bugun:
-                        sonuc.add(sembol)
+                    if parcalar[0] == bugun:
+                        sonuc.add(parcalar[1])
 
     except Exception as e:
         print("Günlük gönderilen dosyası okunamadı:", e)
@@ -178,7 +170,7 @@ def gonderilen_kaydet(symbol):
 
 
 # ============================================================
-# AYLIK MACD GÖNDERİLENLER
+# AYLIK MACD KAYIT
 # ============================================================
 
 def aylik_macd_kayitlari_oku():
@@ -217,7 +209,10 @@ def aylik_macd_kaydet(sinyal_tipi, symbol, ay):
 # ============================================================
 
 def telegram_gonder(mesaj):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = (
+        f"https://api.telegram.org/bot"
+        f"{TELEGRAM_TOKEN}/sendMessage"
+    )
 
     payload = {
         "chat_id": CHAT_ID,
@@ -254,6 +249,52 @@ def telegram_gonder(mesaj):
 
 
 # ============================================================
+# SAYISAL VERİ TEMİZLEME
+# ============================================================
+
+def numeric_temizle(df, kolonlar):
+    """
+    Borsapy / TradingView'den gelen object, pd.NA,
+    string veya bozuk değerleri numeric hale getirir.
+    """
+
+    df = df.copy()
+
+    for kolon in kolonlar:
+        if kolon in df.columns:
+            df[kolon] = pd.to_numeric(
+                df[kolon],
+                errors="coerce"
+            )
+
+    return df
+
+
+# ============================================================
+# VERİ GEÇERLİ Mİ?
+# ============================================================
+
+def veri_gecerli_mi(df, kolonlar, minimum):
+    if df is None or df.empty:
+        return False
+
+    for kolon in kolonlar:
+        if kolon not in df.columns:
+            return False
+
+    df = numeric_temizle(
+        df,
+        kolonlar
+    )
+
+    df = df.dropna(
+        subset=kolonlar
+    )
+
+    return len(df) >= minimum
+
+
+# ============================================================
 # PİYASA AÇIK MI
 # ============================================================
 
@@ -263,12 +304,12 @@ def piyasa_acik_mi():
     if simdi.weekday() >= 5:
         return False
 
-    saat = simdi.hour * 60 + simdi.minute
+    dakika = simdi.hour * 60 + simdi.minute
 
     acilis = 9 * 60 + 40
     kapanis = 18 * 60 + 10
 
-    return acilis <= saat <= kapanis
+    return acilis <= dakika <= kapanis
 
 
 # ============================================================
@@ -299,6 +340,11 @@ def bist100_listesi():
 # ============================================================
 
 def rsi_hesapla(close, period=14):
+    close = pd.to_numeric(
+        close,
+        errors="coerce"
+    )
+
     delta = close.diff()
 
     gain = delta.clip(lower=0)
@@ -314,11 +360,21 @@ def rsi_hesapla(close, period=14):
         adjust=False
     ).mean()
 
-    rs = avg_gain / avg_loss.replace(0, pd.NA)
+    avg_loss = avg_loss.replace(
+        0,
+        float("nan")
+    )
 
-    rsi = 100 - (100 / (1 + rs))
+    rs = avg_gain / avg_loss
 
-    return rsi.astype(float)
+    rsi = 100 - (
+        100 / (1 + rs)
+    )
+
+    return pd.to_numeric(
+        rsi,
+        errors="coerce"
+    )
 
 
 # ============================================================
@@ -326,9 +382,20 @@ def rsi_hesapla(close, period=14):
 # ============================================================
 
 def adx_hesapla(df, period=14):
-    high = df["High"]
-    low = df["Low"]
-    close = df["Close"]
+    high = pd.to_numeric(
+        df["High"],
+        errors="coerce"
+    )
+
+    low = pd.to_numeric(
+        df["Low"],
+        errors="coerce"
+    )
+
+    close = pd.to_numeric(
+        df["Close"],
+        errors="coerce"
+    )
 
     prev_close = close.shift(1)
 
@@ -354,26 +421,28 @@ def adx_hesapla(df, period=14):
         index=df.index
     )
 
-    plus_dm[
+    plus_mask = (
         (up_move > down_move) &
         (up_move > 0)
-    ] = up_move[
-        (up_move > down_move) &
-        (up_move > 0)
-    ]
+    )
 
-    minus_dm[
+    minus_mask = (
         (down_move > up_move) &
         (down_move > 0)
-    ] = down_move[
-        (down_move > up_move) &
-        (down_move > 0)
-    ]
+    )
+
+    plus_dm.loc[plus_mask] = up_move.loc[plus_mask]
+    minus_dm.loc[minus_mask] = down_move.loc[minus_mask]
 
     atr = tr.ewm(
         alpha=1 / period,
         adjust=False
     ).mean()
+
+    atr_safe = atr.replace(
+        0,
+        float("nan")
+    )
 
     plus_di = (
         100 *
@@ -381,7 +450,7 @@ def adx_hesapla(df, period=14):
             alpha=1 / period,
             adjust=False
         ).mean() /
-        atr.replace(0, pd.NA)
+        atr_safe
     )
 
     minus_di = (
@@ -390,13 +459,20 @@ def adx_hesapla(df, period=14):
             alpha=1 / period,
             adjust=False
         ).mean() /
-        atr.replace(0, pd.NA)
+        atr_safe
+    )
+
+    di_sum = (
+        plus_di + minus_di
+    ).replace(
+        0,
+        float("nan")
     )
 
     dx = (
         100 *
         (plus_di - minus_di).abs() /
-        (plus_di + minus_di).replace(0, pd.NA)
+        di_sum
     )
 
     adx = dx.ewm(
@@ -404,7 +480,10 @@ def adx_hesapla(df, period=14):
         adjust=False
     ).mean()
 
-    return adx
+    return pd.to_numeric(
+        adx,
+        errors="coerce"
+    )
 
 
 def adx_gosterge(adx):
@@ -422,8 +501,11 @@ def adx_gosterge(adx):
 # ============================================================
 
 def veri_al(symbol):
+
     for deneme in range(MAX_RETRIES):
+
         try:
+
             ticker = bp.Ticker(symbol)
 
             df = ticker.history(
@@ -431,30 +513,46 @@ def veri_al(symbol):
                 interval="1d"
             )
 
-            if df is not None and not df.empty:
-                df = df.copy()
-
-                df = df.dropna(
-                    subset=[
-                        "Open",
-                        "High",
-                        "Low",
-                        "Close",
-                        "Volume"
-                    ]
+            if df is None or df.empty:
+                raise ValueError(
+                    "Boş veri"
                 )
 
-                if len(df) >= 60:
-                    return df
+            df = df.copy()
 
-        except Exception as e:
-            print(
-                f"{symbol} günlük veri hatası "
-                f"({deneme + 1}/{MAX_RETRIES}):",
-                e
+            gerekli = [
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Volume"
+            ]
+
+            df = numeric_temizle(
+                df,
+                gerekli
             )
 
-        time.sleep(1)
+            df = df.dropna(
+                subset=gerekli
+            )
+
+            if len(df) >= 60:
+                return df
+
+            raise ValueError(
+                f"Yetersiz veri: {len(df)}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"{symbol} günlük veri hatası "
+                f"({deneme + 1}/{MAX_RETRIES}): {e}"
+            )
+
+            if deneme < MAX_RETRIES - 1:
+                time.sleep(1)
 
     return None
 
@@ -464,36 +562,91 @@ def veri_al(symbol):
 # ============================================================
 
 def fibonacci_hesapla(df, lookback=100):
+
     if len(df) < lookback:
         return None
 
-    fib_df = df.tail(lookback).copy()
+    fib_df = df.tail(
+        lookback
+    ).copy()
 
-    fib_high = float(fib_df["High"].max())
-    fib_low = float(fib_df["Low"].min())
+    fib_df["High"] = pd.to_numeric(
+        fib_df["High"],
+        errors="coerce"
+    )
 
-    high_offset = None
-    low_offset = None
+    fib_df["Low"] = pd.to_numeric(
+        fib_df["Low"],
+        errors="coerce"
+    )
+
+    fib_df = fib_df.dropna(
+        subset=["High", "Low"]
+    )
+
+    if len(fib_df) < lookback:
+        return None
+
+    try:
+        fib_high = float(
+            fib_df["High"].max()
+        )
+
+        fib_low = float(
+            fib_df["Low"].min()
+        )
+
+    except Exception:
+        return None
+
+    if pd.isna(fib_high) or pd.isna(fib_low):
+        return None
+
+    fib_range = fib_high - fib_low
+
+    if fib_range <= 0:
+        return None
 
     high_values = fib_df["High"].tolist()
     low_values = fib_df["Low"].tolist()
 
-    for i in range(len(high_values) - 1, -1, -1):
-        if high_values[i] == fib_high:
-            high_offset = len(high_values) - 1 - i
-            break
+    high_offset = None
+    low_offset = None
 
-    for i in range(len(low_values) - 1, -1, -1):
-        if low_values[i] == fib_low:
-            low_offset = len(low_values) - 1 - i
-            break
+    for i in range(
+        len(high_values) - 1,
+        -1,
+        -1
+    ):
+
+        try:
+            if float(high_values[i]) == fib_high:
+                high_offset = (
+                    len(high_values) - 1 - i
+                )
+                break
+        except Exception:
+            continue
+
+    for i in range(
+        len(low_values) - 1,
+        -1,
+        -1
+    ):
+
+        try:
+            if float(low_values[i]) == fib_low:
+                low_offset = (
+                    len(low_values) - 1 - i
+                )
+                break
+        except Exception:
+            continue
 
     if high_offset is None or low_offset is None:
         return None
 
     revfibs = low_offset > high_offset
-
-    fib_range = fib_high - fib_low
 
     oranlar = [
         0.000,
@@ -508,13 +661,18 @@ def fibonacci_hesapla(df, lookback=100):
     seviyeler = {}
 
     if revfibs:
+
         for oran in oranlar:
+
             seviyeler[oran] = (
                 fib_low +
                 fib_range * oran
             )
+
     else:
+
         for oran in oranlar:
+
             seviyeler[oran] = (
                 fib_high -
                 fib_range * oran
@@ -528,25 +686,25 @@ def fibonacci_hesapla(df, lookback=100):
 
 
 # ============================================================
-# YARDIMCI
-# ============================================================
-
-def pd_isna(value):
-    try:
-        return pd.isna(value)
-    except Exception:
-        return False
-
-
-# ============================================================
 # PINE RSI
 # ============================================================
 
 def pine_rsi(series, length):
+
+    series = pd.to_numeric(
+        series,
+        errors="coerce"
+    )
+
     delta = series.diff()
 
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
+    gain = delta.clip(
+        lower=0
+    )
+
+    loss = -delta.clip(
+        upper=0
+    )
 
     avg_gain = gain.ewm(
         alpha=1 / length,
@@ -558,10 +716,12 @@ def pine_rsi(series, length):
         adjust=False
     ).mean()
 
-    rs = avg_gain / avg_loss.replace(
+    avg_loss = avg_loss.replace(
         0,
-        pd.NA
+        float("nan")
     )
+
+    rs = avg_gain / avg_loss
 
     return 100 - (
         100 / (1 + rs)
@@ -578,7 +738,10 @@ def calculate_qqe(
     smoothing,
     qqe_factor
 ):
-    wilders_length = rsi_length * 2 - 1
+
+    wilders_length = (
+        rsi_length * 2 - 1
+    )
 
     rsi = pine_rsi(
         source,
@@ -626,68 +789,105 @@ def calculate_qqe(
     )
 
     for i in range(len(source)):
+
+        current_rsi = smoothed_rsi.iloc[i]
+        current_atr = dynamic_atr_rsi.iloc[i]
+
+        if pd.isna(current_rsi):
+            continue
+
+        if pd.isna(current_atr):
+            current_atr = 0.0
+
         if i == 0:
+
             long_band.iloc[i] = (
-                smoothed_rsi.iloc[i] -
-                dynamic_atr_rsi.iloc[i]
+                current_rsi -
+                current_atr
             )
 
             short_band.iloc[i] = (
-                smoothed_rsi.iloc[i] +
-                dynamic_atr_rsi.iloc[i]
+                current_rsi +
+                current_atr
             )
 
             trend_direction.iloc[i] = 1
 
-            trend_line.iloc[i] = long_band.iloc[i]
+            trend_line.iloc[i] = (
+                long_band.iloc[i]
+            )
 
             continue
-
-        new_long = (
-            smoothed_rsi.iloc[i] -
-            dynamic_atr_rsi.iloc[i]
-        )
-
-        new_short = (
-            smoothed_rsi.iloc[i] +
-            dynamic_atr_rsi.iloc[i]
-        )
 
         prev_long = long_band.iloc[i - 1]
         prev_short = short_band.iloc[i - 1]
         prev_rsi = smoothed_rsi.iloc[i - 1]
 
+        if pd.isna(prev_long):
+            prev_long = (
+                current_rsi -
+                current_atr
+            )
+
+        if pd.isna(prev_short):
+            prev_short = (
+                current_rsi +
+                current_atr
+            )
+
+        if pd.isna(prev_rsi):
+            prev_rsi = current_rsi
+
+        new_long = (
+            current_rsi -
+            current_atr
+        )
+
+        new_short = (
+            current_rsi +
+            current_atr
+        )
+
         if (
-            smoothed_rsi.iloc[i] > prev_long and
+            current_rsi > prev_long and
             prev_rsi > prev_long
         ):
+
             long_band.iloc[i] = max(
                 prev_long,
                 new_long
             )
+
         else:
+
             long_band.iloc[i] = new_long
 
         if (
-            smoothed_rsi.iloc[i] < prev_short and
+            current_rsi < prev_short and
             prev_rsi < prev_short
         ):
+
             short_band.iloc[i] = min(
                 prev_short,
                 new_short
             )
+
         else:
+
             short_band.iloc[i] = new_short
 
         direction = trend_direction.iloc[i - 1]
 
+        if pd.isna(direction):
+            direction = 1
+
         cross_up = (
-            smoothed_rsi.iloc[i] > prev_short and
+            current_rsi > prev_short and
             prev_rsi <= prev_short
         )
 
         cross_down = (
-            smoothed_rsi.iloc[i] < prev_long and
+            current_rsi < prev_long and
             prev_rsi >= prev_long
         )
 
@@ -700,9 +900,16 @@ def calculate_qqe(
         trend_direction.iloc[i] = direction
 
         if direction == 1:
-            trend_line.iloc[i] = long_band.iloc[i]
+
+            trend_line.iloc[i] = (
+                long_band.iloc[i]
+            )
+
         else:
-            trend_line.iloc[i] = short_band.iloc[i]
+
+            trend_line.iloc[i] = (
+                short_band.iloc[i]
+            )
 
     return (
         rsi,
@@ -712,9 +919,12 @@ def calculate_qqe(
 
 
 def qqe_hesapla(df):
-    source = df["Close"]
 
-    # PRIMARY
+    source = pd.to_numeric(
+        df["Close"],
+        errors="coerce"
+    )
+
     (
         primary_rsi_raw,
         primary_rsi,
@@ -726,7 +936,6 @@ def qqe_hesapla(df):
         3.0
     )
 
-    # SECONDARY
     (
         secondary_rsi_raw,
         secondary_rsi,
@@ -738,19 +947,19 @@ def qqe_hesapla(df):
         1.61
     )
 
-    # TradingView:
-    # primaryQQETrendLine - 50
     bollinger_source = (
         primary_trend_line - 50
     )
 
     basis = bollinger_source.rolling(
-        50
+        50,
+        min_periods=20
     ).mean()
 
     deviation = (
         bollinger_source.rolling(
-            50
+            50,
+            min_periods=20
         ).std() * 0.35
     )
 
@@ -810,6 +1019,7 @@ def qqe_hesapla(df):
 
 
 def qqe_renk_goster(renk):
+
     if renk == "MAVI":
         return "🔵 QQE: MAVİ"
 
@@ -824,33 +1034,55 @@ def qqe_renk_goster(renk):
 # ============================================================
 
 def analiz_et(symbol, sadece_sinyal=False):
+
     try:
+
         df = veri_al(symbol)
 
         if df is None or len(df) < 60:
             return None
 
+        df = numeric_temizle(
+            df,
+            [
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Volume"
+            ]
+        )
+
+        df = df.dropna(
+            subset=[
+                "Open",
+                "High",
+                "Low",
+                "Close",
+                "Volume"
+            ]
+        )
+
+        if len(df) < 60:
+            return None
+
         close = df["Close"]
 
-        # EMA14
         ema = close.ewm(
             span=EMA_PERIOD,
             adjust=False
         ).mean()
 
-        # RSI14
         rsi = rsi_hesapla(
             close,
             RSI_PERIOD
         )
 
-        # ADX14
         adx = adx_hesapla(
             df,
             ADX_PERIOD
         )
 
-        # Ichimoku Base
         base = (
             df["High"].rolling(
                 BASE_PERIOD
@@ -861,23 +1093,65 @@ def analiz_et(symbol, sadece_sinyal=False):
             ).min()
         ) / 2
 
-        # QQE
         qqe = qqe_hesapla(df)
 
-        # Son değerler
-        son_close = float(close.iloc[-1])
-        onceki_close = float(close.iloc[-2])
+        # ----------------------------------------------------
+        # SON DEĞERLER
+        # ----------------------------------------------------
 
-        son_ema = float(ema.iloc[-1])
-        onceki_ema = float(ema.iloc[-2])
+        values = [
+            close.iloc[-1],
+            close.iloc[-2],
+            ema.iloc[-1],
+            ema.iloc[-2],
+            rsi.iloc[-1],
+            rsi.iloc[-2],
+            base.iloc[-1],
+            base.iloc[-2],
+            adx.iloc[-1]
+        ]
 
-        son_rsi = float(rsi.iloc[-1])
-        onceki_rsi = float(rsi.iloc[-2])
+        if any(
+            pd.isna(x)
+            for x in values
+        ):
+            return None
 
-        son_base = float(base.iloc[-1])
-        onceki_base = float(base.iloc[-2])
+        son_close = float(
+            close.iloc[-1]
+        )
 
-        son_adx = float(adx.iloc[-1])
+        onceki_close = float(
+            close.iloc[-2]
+        )
+
+        son_ema = float(
+            ema.iloc[-1]
+        )
+
+        onceki_ema = float(
+            ema.iloc[-2]
+        )
+
+        son_rsi = float(
+            rsi.iloc[-1]
+        )
+
+        onceki_rsi = float(
+            rsi.iloc[-2]
+        )
+
+        son_base = float(
+            base.iloc[-1]
+        )
+
+        onceki_base = float(
+            base.iloc[-2]
+        )
+
+        son_adx = float(
+            adx.iloc[-1]
+        )
 
         # ====================================================
         # GÜNLÜK ANA KRİTERLER
@@ -890,7 +1164,8 @@ def analiz_et(symbol, sadece_sinyal=False):
 
         ema_mesafe = (
             son_close >=
-            son_ema * (1 + EMA_MIN_DISTANCE)
+            son_ema *
+            (1 + EMA_MIN_DISTANCE)
         )
 
         ema_yukseliyor = (
@@ -907,7 +1182,7 @@ def analiz_et(symbol, sadece_sinyal=False):
         )
 
         # ----------------------------------------------------
-        # SADECE GÜNLÜK SİSTEM İÇİN FİLTRE
+        # GÜNLÜK FİLTRE
         # ----------------------------------------------------
 
         if not sadece_sinyal:
@@ -922,7 +1197,7 @@ def analiz_et(symbol, sadece_sinyal=False):
                 return None
 
         # ====================================================
-        # FIBONACCI
+        # FIB
         # ====================================================
 
         fib = fibonacci_hesapla(
@@ -945,12 +1220,14 @@ def analiz_et(symbol, sadece_sinyal=False):
         alttaki = []
 
         for oran, seviye in seviyeler.items():
+
             if seviye < son_close:
                 alttaki.append(
                     (oran, seviye)
                 )
 
         if alttaki:
+
             stop_oran, stop = max(
                 alttaki,
                 key=lambda x: x[1]
@@ -968,7 +1245,7 @@ def analiz_et(symbol, sadece_sinyal=False):
         )
 
         # ====================================================
-        # TEPE POTANSİYELİ
+        # TEPE
         # ====================================================
 
         tepe = seviyeler.get(
@@ -976,10 +1253,13 @@ def analiz_et(symbol, sadece_sinyal=False):
         )
 
         if tepe is not None:
+
             tepe_potansiyel = (
                 (tepe / son_close) - 1
             ) * 100
+
         else:
+
             tepe_potansiyel = 0
 
         # ====================================================
@@ -987,66 +1267,87 @@ def analiz_et(symbol, sadece_sinyal=False):
         # ====================================================
 
         if len(close) >= 2:
+
             gunluk_yuzde = (
-                (son_close / float(close.iloc[-2]))
-                - 1
+                (son_close /
+                 float(close.iloc[-2])) - 1
             ) * 100
+
         else:
+
             gunluk_yuzde = 0
 
         # ====================================================
-        # HAFTALIK DEĞİŞİM
+        # HAFTALIK
         # ====================================================
 
         if len(close) >= 6:
+
             haftalik_yuzde = (
-                (son_close / float(close.iloc[-6]))
-                - 1
+                (son_close /
+                 float(close.iloc[-6])) - 1
             ) * 100
+
         else:
+
             haftalik_yuzde = 0
 
         # ====================================================
         # HACİM
         # ====================================================
 
+        volume = pd.to_numeric(
+            df["Volume"],
+            errors="coerce"
+        )
+
         ort_hacim = (
-            df["Volume"]
-            .rolling(20)
+            volume
+            .rolling(
+                20,
+                min_periods=1
+            )
             .mean()
             .iloc[-1]
         )
 
-        if pd_isna(ort_hacim):
-            ort_hacim = float(
-                df["Volume"].iloc[-1]
-            )
+        hacim = volume.iloc[-1]
 
-        hacim = float(
-            df["Volume"].iloc[-1]
-        )
+        if pd.isna(hacim):
+            return None
+
+        hacim = float(hacim)
+
+        if pd.isna(ort_hacim):
+            ort_hacim = hacim
+        else:
+            ort_hacim = float(ort_hacim)
 
         # ====================================================
         # QQE
         # ====================================================
 
-        qqe_renk = qqe["qqe_renk"].iloc[-1]
+        qqe_renk = qqe[
+            "qqe_renk"
+        ].iloc[-1]
+
+        if pd.isna(qqe_renk):
+            qqe_renk = "GRI"
 
         return {
             "symbol": symbol,
-
             "fiyat": son_close,
 
             "gunluk_yuzde": gunluk_yuzde,
             "haftalik_yuzde": haftalik_yuzde,
 
             "ema": son_ema,
+
             "ema_yuzde": (
                 (son_close / son_ema) - 1
             ) * 100,
 
             "rsi": son_rsi,
-
             "adx": son_adx,
 
             "fib": seviyeler,
@@ -1067,9 +1368,9 @@ def analiz_et(symbol, sadece_sinyal=False):
         }
 
     except Exception as e:
+
         print(
-            f"{symbol} analiz hatası:",
-            e
+            f"{symbol} analiz hatası: {e}"
         )
 
         return None
@@ -1080,6 +1381,7 @@ def analiz_et(symbol, sadece_sinyal=False):
 # ============================================================
 
 def yuzde_mesafe(seviye, fiyat):
+
     if fiyat == 0:
         return 0
 
@@ -1093,6 +1395,7 @@ def yuzde_mesafe(seviye, fiyat):
 # ============================================================
 
 def fib_satiri(oran, seviye, fiyat):
+
     yuzde = yuzde_mesafe(
         seviye,
         fiyat
@@ -1111,19 +1414,21 @@ def fib_satiri(oran, seviye, fiyat):
 
 
 # ============================================================
-# GÜNLÜK / AYLIK ORTAK TELEGRAM MESAJI
+# TELEGRAM MESAJ
 # ============================================================
 
 def mesaj_olustur(
     sonuc,
     baslik
 ):
+
     symbol = sonuc["symbol"]
     fiyat = sonuc["fiyat"]
-
     adx = sonuc["adx"]
 
-    adx_ikon = adx_gosterge(adx)
+    adx_ikon = adx_gosterge(
+        adx
+    )
 
     qqe_durum = qqe_renk_goster(
         sonuc["qqe_renk"]
@@ -1138,26 +1443,32 @@ def mesaj_olustur(
     mesaj = (
         f"{baslik} : {symbol:<20} "
         f"ADX {adx_ikon} {adx:.1f}\n\n"
+
         f"💰 Giriş: {fiyat:.2f} TL"
         f"{' ' * 18}"
         f"{qqe_durum}\n"
+
         f"🟢 Günlük: "
         f"{sonuc['gunluk_yuzde']:+.2f}%\n"
+
         f"🟢 1 Hafta: "
         f"{sonuc['haftalik_yuzde']:+.2f}%\n\n"
+
         f"📏 EMA14: "
         f"{sonuc['ema']:.2f} TL "
         f"({sonuc['ema_yuzde']:+.2f}%)\n"
+
         f"📊 RSI: "
         f"{sonuc['rsi']:.1f}\n\n"
+
         f"📐 FIB SEVİYELERİ\n\n"
     )
 
-    # Büyükten küçüğe
     for oran in sorted(
         sonuc["fib"].keys(),
         reverse=True
     ):
+
         seviye = sonuc["fib"][oran]
 
         mesaj += (
@@ -1167,11 +1478,14 @@ def mesaj_olustur(
     mesaj += "\n🛑 STOP\n"
 
     if sonuc["stop"] is not None:
+
         mesaj += (
             f"{sonuc['stop_oran']:.3f} → "
             f"{sonuc['stop']:.2f} TL\n"
         )
+
     else:
+
         mesaj += "Yok\n"
 
     mesaj += (
@@ -1179,16 +1493,20 @@ def mesaj_olustur(
     )
 
     if sonuc["tepe"] is not None:
+
         mesaj += (
             f"1.000 → "
             f"{sonuc['tepe']:.2f} TL  |  "
             f"{sonuc['tepe_potansiyel']:+.2f}%\n"
         )
+
     else:
+
         mesaj += "Yok\n"
 
     mesaj += (
         f"\n🏦 Pazar: {pazar}\n"
+
         f"🔊 Hacim: "
         f"{sonuc['hacim'] / 1_000_000:.1f}M"
     )
@@ -1201,8 +1519,13 @@ def mesaj_olustur(
 # ============================================================
 
 def aylik_veri_al(symbol):
-    for deneme in range(MAX_RETRIES):
+
+    for deneme in range(
+        MAX_RETRIES
+    ):
+
         try:
+
             ticker = bp.Ticker(symbol)
 
             df = ticker.history(
@@ -1210,24 +1533,38 @@ def aylik_veri_al(symbol):
                 interval="1mo"
             )
 
-            if df is not None and not df.empty:
-                df = df.copy()
-
-                df = df.dropna(
-                    subset=["Close"]
+            if df is None or df.empty:
+                raise ValueError(
+                    "Boş aylık veri"
                 )
 
-                if len(df) >= 40:
-                    return df
+            df = df.copy()
 
-        except Exception as e:
-            print(
-                f"{symbol} aylık veri hatası "
-                f"({deneme + 1}/{MAX_RETRIES}):",
-                e
+            df = numeric_temizle(
+                df,
+                ["Close"]
             )
 
-        time.sleep(1)
+            df = df.dropna(
+                subset=["Close"]
+            )
+
+            if len(df) >= 40:
+                return df
+
+            raise ValueError(
+                f"Yetersiz aylık veri: {len(df)}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"{symbol} aylık veri hatası "
+                f"({deneme + 1}/{MAX_RETRIES}): {e}"
+            )
+
+            if deneme < MAX_RETRIES - 1:
+                time.sleep(1)
 
     return None
 
@@ -1237,7 +1574,11 @@ def aylik_veri_al(symbol):
 # ============================================================
 
 def aylik_macd_hesapla(df):
-    close = df["Close"]
+
+    close = pd.to_numeric(
+        df["Close"],
+        errors="coerce"
+    )
 
     ema12 = close.ewm(
         span=12,
@@ -1260,109 +1601,112 @@ def aylik_macd_hesapla(df):
 
 
 # ============================================================
-# AYLIK MACD SİNYALLERİ
+# AYLIK MACD SİNYAL
 # ============================================================
 
 def aylik_macd_sinyal(symbol):
+
     try:
-        df = aylik_veri_al(symbol)
+
+        df = aylik_veri_al(
+            symbol
+        )
 
         if df is None or len(df) < 40:
             return None
 
         df = df.copy()
 
-        # ----------------------------------------------------
-        # TARİH İNDEKSİNİ DATETIME YAP
-        # ----------------------------------------------------
-
         try:
+
             df.index = pd.to_datetime(
                 df.index
             )
+
         except Exception:
             pass
 
-        macd, signal = aylik_macd_hesapla(df)
+        macd, signal = aylik_macd_hesapla(
+            df
+        )
 
-        df["MACD"] = macd
-        df["SIGNAL"] = signal
+        df["MACD"] = pd.to_numeric(
+            macd,
+            errors="coerce"
+        )
+
+        df["SIGNAL"] = pd.to_numeric(
+            signal,
+            errors="coerce"
+        )
 
         df = df.dropna(
-            subset=["MACD", "SIGNAL"]
+            subset=[
+                "MACD",
+                "SIGNAL"
+            ]
         )
 
         if len(df) < 3:
             return None
 
-        # ====================================================
-        # ÖNEMLİ:
-        #
-        # SON SATIR İÇİNDE BULUNDUĞUMUZ AYSA
-        # BU AYIN MUMU CANLI OLARAK KULLANILIR.
-        #
-        # SON SATIR ESKİ BİR AYSA ZATEN KAPANMIŞ
-        # VERİ GELMİŞTİR.
-        # ====================================================
-
-        simdi = datetime.now(ISTANBUL)
+        simdi = datetime.now(
+            ISTANBUL
+        )
 
         son_index = df.index[-1]
 
         son_ay_canli = False
 
         try:
+
             son_ay_canli = (
                 son_index.year == simdi.year and
                 son_index.month == simdi.month
             )
+
         except Exception:
             pass
 
-        # ----------------------------------------------------
-        # SON MUM = İÇİNDE BULUNDUĞUMUZ AY
-        #
-        # Bir önceki aylık mum:
-        # iloc[-2]
-        #
-        # İki ay önce:
-        # iloc[-3]
-        # ----------------------------------------------------
+        son = df.iloc[-1]
+        onceki = df.iloc[-2]
+        iki_onceki = df.iloc[-3]
 
-        if son_ay_canli:
-            son = df.iloc[-1]
-            onceki = df.iloc[-2]
-            iki_onceki = df.iloc[-3]
+        try:
 
-            try:
-                ay_etiketi = (
-                    f"{son_index.year:04d}-"
-                    f"{son_index.month:02d}"
-                )
-            except Exception:
-                ay_etiketi = simdi.strftime(
-                    "%Y-%m"
-                )
+            ay_etiketi = (
+                f"{son_index.year:04d}-"
+                f"{son_index.month:02d}"
+            )
 
-        else:
-            # API mevcut ayı vermiyorsa
-            # son gelen mum kapanmış mumdur.
-            son = df.iloc[-1]
-            onceki = df.iloc[-2]
-            iki_onceki = df.iloc[-3]
+        except Exception:
 
-            try:
-                ay_etiketi = (
-                    f"{son_index.year:04d}-"
-                    f"{son_index.month:02d}"
-                )
-            except Exception:
-                ay_etiketi = simdi.strftime(
-                    "%Y-%m"
-                )
+            ay_etiketi = simdi.strftime(
+                "%Y-%m"
+            )
 
-        son_macd = float(son["MACD"])
-        onceki_macd = float(onceki["MACD"])
+        sayisal = [
+            son["MACD"],
+            onceki["MACD"],
+            iki_onceki["MACD"],
+            son["SIGNAL"],
+            onceki["SIGNAL"]
+        ]
+
+        if any(
+            pd.isna(x)
+            for x in sayisal
+        ):
+            return None
+
+        son_macd = float(
+            son["MACD"]
+        )
+
+        onceki_macd = float(
+            onceki["MACD"]
+        )
+
         iki_onceki_macd = float(
             iki_onceki["MACD"]
         )
@@ -1376,15 +1720,9 @@ def aylik_macd_sinyal(symbol):
         )
 
         # ====================================================
-        # 1. 🟢 AYLIK
+        # 🟢 AYLIK
         #
-        # MACD SIGNAL'I YUKARI KESİYOR
-        #
-        # Önceki:
-        # MACD <= Signal
-        #
-        # Şimdi:
-        # MACD > Signal
+        # MACD Signal'ı yukarı kesiyor
         # ====================================================
 
         aylik_al = (
@@ -1393,26 +1731,7 @@ def aylik_macd_sinyal(symbol):
         )
 
         # ====================================================
-        # 2. 🟠 AYLIK ÜSTÜNE ATTI
-        #
-        # SENİN İSTEDİĞİN MANTIK:
-        #
-        # ÖNCEKİ AY MACD = 10.00
-        #
-        # BU AY:
-        # 9.90
-        # 9.99
-        # 10.00
-        # 10.01  -> SİNYAL
-        #
-        # Yani:
-        #
-        # BU AY MACD >
-        # ÖNCEKİ AY MACD
-        #
-        # VE ÖNCEKİ AY MACD,
-        # İKİ AY ÖNCEKİ MACD'YE
-        # EŞİT VEYA ALTINDA.
+        # 🟠 AYLIK ÜSTÜNE ATTI
         # ====================================================
 
         aylik_ustune_atti = (
@@ -1425,20 +1744,27 @@ def aylik_macd_sinyal(symbol):
             "ay": ay_etiketi,
 
             "aylik_al": aylik_al,
-            "aylik_ustune_atti": aylik_ustune_atti,
+
+            "aylik_ustune_atti":
+                aylik_ustune_atti,
 
             "macd": son_macd,
             "signal": son_signal,
-            "onceki_macd": onceki_macd,
-            "iki_onceki_macd": iki_onceki_macd,
 
-            "canli_ay": son_ay_canli
+            "onceki_macd":
+                onceki_macd,
+
+            "iki_onceki_macd":
+                iki_onceki_macd,
+
+            "canli_ay":
+                son_ay_canli
         }
 
     except Exception as e:
+
         print(
-            f"{symbol} aylık MACD analiz hatası:",
-            e
+            f"{symbol} aylık MACD analiz hatası: {e}"
         )
 
         return None
@@ -1449,29 +1775,29 @@ def aylik_macd_sinyal(symbol):
 # ============================================================
 
 def tarama_listesi_olustur():
+
     bist100 = bist100_listesi()
 
     liste = set()
 
-    liste.update(bist100)
-    liste.update(ANA_PAZAR)
+    liste.update(
+        bist100
+    )
 
-    return sorted(liste)
+    liste.update(
+        ANA_PAZAR
+    )
+
+    return sorted(
+        liste
+    )
 
 
 # ============================================================
-# AYLIK MESAJ DETAYI
+# AYLIK MESAJ DETAY
 # ============================================================
 
 def aylik_mesaj_detay(symbol):
-    """
-    Aylık sinyal günlük kriterlerden bağımsızdır.
-
-    Fakat Telegram mesajında mevcut günlük mesajın
-    detaylarını kullanıyoruz.
-
-    Bu nedenle sadece_sinyal=True ile analiz ediyoruz.
-    """
 
     return analiz_et(
         symbol,
@@ -1483,13 +1809,18 @@ def aylik_mesaj_detay(symbol):
 # AYLIK TARAMA
 # ============================================================
 
-def aylik_macd_tarama(tarama_listesi):
+def aylik_macd_tarama(
+    tarama_listesi
+):
+
     print(
         f"\n📅 Aylık MACD taraması başladı. "
         f"{len(tarama_listesi)} hisse..."
     )
 
-    kayitlar = aylik_macd_kayitlari_oku()
+    kayitlar = (
+        aylik_macd_kayitlari_oku()
+    )
 
     sinyaller = []
 
@@ -1502,13 +1833,23 @@ def aylik_macd_tarama(tarama_listesi):
                 aylik_macd_sinyal,
                 symbol
             ): symbol
+
             for symbol in tarama_listesi
         }
 
-        for future in as_completed(futures):
+        tamamlanan = 0
+        toplam = len(futures)
+
+        for future in as_completed(
+            futures
+        ):
+
             symbol = futures[future]
 
+            tamamlanan += 1
+
             try:
+
                 sonuc = future.result()
 
                 if sonuc is None:
@@ -1516,9 +1857,9 @@ def aylik_macd_tarama(tarama_listesi):
 
                 ay = sonuc["ay"]
 
-                # ====================================================
+                # =================================================
                 # 🟢 AYLIK
-                # ====================================================
+                # =================================================
 
                 if sonuc["aylik_al"]:
 
@@ -1538,9 +1879,9 @@ def aylik_macd_tarama(tarama_listesi):
                             )
                         )
 
-                # ====================================================
+                # =================================================
                 # 🟠 AYLIK ÜSTÜNE ATTI
-                # ====================================================
+                # =================================================
 
                 if sonuc["aylik_ustune_atti"]:
 
@@ -1561,22 +1902,34 @@ def aylik_macd_tarama(tarama_listesi):
                         )
 
             except Exception as e:
+
                 print(
-                    f"{symbol} aylık tarama sonucu hatası:",
-                    e
+                    f"{symbol} aylık sonuç hatası: {e}"
                 )
 
-    # ====================================================
-    # AYLIK SİNYALLERİ GÖNDER
-    # ====================================================
+            if tamamlanan % 25 == 0:
 
-    for sinyal_tipi, symbol, ay in sinyaller:
+                print(
+                    f"Aylık tarama: "
+                    f"{tamamlanan}/{toplam}"
+                )
+
+    # ============================================================
+    # GÖNDER
+    # ============================================================
+
+    for (
+        sinyal_tipi,
+        symbol,
+        ay
+    ) in sinyaller:
 
         detay = aylik_mesaj_detay(
             symbol
         )
 
         if detay is None:
+
             print(
                 f"⚠️ {symbol} aylık sinyal var "
                 f"ama mesaj detayları alınamadı."
@@ -1584,11 +1937,17 @@ def aylik_macd_tarama(tarama_listesi):
 
             continue
 
+        if sinyal_tipi == "AYLIK":
+
+            baslik = "🟢 AYLIK"
+
+        else:
+
+            baslik = "🟠 AYLIK ÜSTÜNE ATTI"
+
         mesaj = mesaj_olustur(
             detay,
-            f"🟢 {sinyal_tipi}"
-            if sinyal_tipi == "AYLIK"
-            else f"🟠 {sinyal_tipi}"
+            baslik
         )
 
         print(
@@ -1599,6 +1958,7 @@ def aylik_macd_tarama(tarama_listesi):
         if telegram_gonder(mesaj):
 
             if sinyal_tipi == "AYLIK":
+
                 aylik_macd_kaydet(
                     "AYLIK_MACD_AL",
                     symbol,
@@ -1606,6 +1966,7 @@ def aylik_macd_tarama(tarama_listesi):
                 )
 
             else:
+
                 aylik_macd_kaydet(
                     "AYLIK_MACD_USTUNE",
                     symbol,
@@ -1618,6 +1979,7 @@ def aylik_macd_tarama(tarama_listesi):
             )
 
         else:
+
             print(
                 f"❌ Telegram gönderilemedi: "
                 f"{sinyal_tipi} {symbol}"
@@ -1629,6 +1991,11 @@ def aylik_macd_tarama(tarama_listesi):
 # ============================================================
 
 def main():
+
+    simdi = datetime.now(
+        ISTANBUL
+    )
+
     print(
         "\n========================================"
     )
@@ -1638,18 +2005,29 @@ def main():
     )
 
     print(
+        f"Türkiye saati: "
+        f"{simdi.strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+
+    print(
         "========================================"
     )
 
+    # --------------------------------------------------------
+    # PİYASA KAPALIYSA BU ÇALIŞMADA ÇIK
+    # --------------------------------------------------------
+
     if not piyasa_acik_mi():
+
         print(
-            "⏸ Piyasa kapalı."
+            "⏸ Piyasa kapalı. "
+            "Bu çalışma sonlandırılıyor."
         )
 
         return
 
     # ========================================================
-    # TARAMA LİSTESİ
+    # LİSTE
     # ========================================================
 
     tarama_listesi = (
@@ -1693,21 +2071,27 @@ def main():
                 analiz_et,
                 symbol
             ): symbol
+
             for symbol in tarama_listesi
         }
 
         tamamlanan = 0
         toplam = len(futures)
 
-        for future in as_completed(futures):
+        for future in as_completed(
+            futures
+        ):
+
             symbol = futures[future]
 
             tamamlanan += 1
 
             try:
+
                 sonuc = future.result()
 
                 if sonuc is not None:
+
                     bulunanlar.append(
                         sonuc
                     )
@@ -1718,12 +2102,14 @@ def main():
                     )
 
             except Exception as e:
+
                 print(
-                    f"{symbol} günlük sonuç hatası:",
-                    e
+                    f"{symbol} günlük sonuç hatası: "
+                    f"{e}"
                 )
 
             if tamamlanan % 25 == 0:
+
                 print(
                     f"Günlük tarama: "
                     f"{tamamlanan}/{toplam}"
@@ -1743,6 +2129,7 @@ def main():
         symbol = sonuc["symbol"]
 
         if symbol in gonderilenler:
+
             print(
                 f"⏭ Daha önce gönderildi: "
                 f"{symbol}"
@@ -1776,15 +2163,14 @@ def main():
             )
 
         else:
+
             print(
                 f"❌ Günlük gönderilemedi: "
                 f"{symbol}"
             )
 
     # ========================================================
-    # AYLIK MACD TARAMASI
-    #
-    # GÜNLÜK SİSTEMDEN BAĞIMSIZ
+    # AYLIK MACD
     # ========================================================
 
     aylik_macd_tarama(
