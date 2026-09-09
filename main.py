@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 import borsapy as bp
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -40,6 +40,21 @@ MACD_SIGNAL = 9
 
 # Aylık MACD için yeterli geçmiş
 AYLIK_VERI_PERIYODU = "5y"
+
+# ============================================================
+# PLANLI ÇALIŞMA
+# ============================================================
+
+TARAMA_ARALIGI_DAKIKA = 5
+
+SABAH_BASLANGIC_SAAT = 9
+SABAH_BASLANGIC_DAKIKA = 50
+
+OGLE_BASLANGIC_SAAT = 14
+OGLE_BASLANGIC_DAKIKA = 0
+
+TARAMA_BITIS_SAAT = 18
+TARAMA_BITIS_DAKIKA = 0
 
 MAX_WORKERS = 4
 MAX_RETRIES = 3
@@ -86,22 +101,15 @@ ANA_PAZAR = {
 
 def gonderilenleri_oku():
 
-    bugun = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m-%d")
+    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
 
     if not os.path.exists(GONDERILEN_DOSYA):
         return set()
 
     try:
-
         kayitlar = set()
 
-        with open(
-            GONDERILEN_DOSYA,
-            "r",
-            encoding="utf-8"
-        ) as dosya:
+        with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
 
             for satir in dosya:
 
@@ -117,9 +125,7 @@ def gonderilenleri_oku():
                     tarih, hisse = parcalar
 
                     if tarih == bugun:
-                        kayitlar.add(
-                            hisse.upper()
-                        )
+                        kayitlar.add(hisse.upper())
 
         return kayitlar
 
@@ -136,9 +142,7 @@ def gonderilenleri_oku():
 
 def gonderilenleri_kaydet(hisseler):
 
-    bugun = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m-%d")
+    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
 
     try:
 
@@ -162,9 +166,7 @@ def gonderilenleri_kaydet(hisseler):
         bugunku = {
             satir
             for satir in mevcut
-            if satir.startswith(
-                bugun + "|"
-            )
+            if satir.startswith(bugun + "|")
         }
 
         for hisse in hisseler:
@@ -176,9 +178,7 @@ def gonderilenleri_kaydet(hisseler):
         eski = [
             satir
             for satir in mevcut
-            if not satir.startswith(
-                bugun + "|"
-            )
+            if not satir.startswith(bugun + "|")
         ]
 
         with open(
@@ -191,9 +191,7 @@ def gonderilenleri_kaydet(hisseler):
                 eski + list(bugunku)
             ):
 
-                dosya.write(
-                    satir + "\n"
-                )
+                dosya.write(satir + "\n")
 
         print(
             "Günlük kayıt dosyası güncellendi."
@@ -214,13 +212,9 @@ def gonderilenleri_kaydet(hisseler):
 
 def aylik_gonderilenleri_oku():
 
-    bu_ay = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m")
+    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
 
-    if not os.path.exists(
-        AYLIK_GONDERILEN_DOSYA
-    ):
+    if not os.path.exists(AYLIK_GONDERILEN_DOSYA):
         return set()
 
     try:
@@ -247,9 +241,7 @@ def aylik_gonderilenleri_oku():
                     ay, hisse = parcalar
 
                     if ay == bu_ay:
-                        kayitlar.add(
-                            hisse.upper()
-                        )
+                        kayitlar.add(hisse.upper())
 
         return kayitlar
 
@@ -266,17 +258,13 @@ def aylik_gonderilenleri_oku():
 
 def aylik_gonderilenleri_kaydet(hisseler):
 
-    bu_ay = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m")
+    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
 
     try:
 
         mevcut = []
 
-        if os.path.exists(
-            AYLIK_GONDERILEN_DOSYA
-        ):
+        if os.path.exists(AYLIK_GONDERILEN_DOSYA):
 
             with open(
                 AYLIK_GONDERILEN_DOSYA,
@@ -294,9 +282,7 @@ def aylik_gonderilenleri_kaydet(hisseler):
         bu_ayki = {
             satir
             for satir in mevcut
-            if satir.startswith(
-                bu_ay + "|"
-            )
+            if satir.startswith(bu_ay + "|")
         }
 
         for hisse in hisseler:
@@ -308,9 +294,7 @@ def aylik_gonderilenleri_kaydet(hisseler):
         eski = [
             satir
             for satir in mevcut
-            if not satir.startswith(
-                bu_ay + "|"
-            )
+            if not satir.startswith(bu_ay + "|")
         ]
 
         with open(
@@ -323,9 +307,7 @@ def aylik_gonderilenleri_kaydet(hisseler):
                 eski + list(bu_ayki)
             ):
 
-                dosya.write(
-                    satir + "\n"
-                )
+                dosya.write(satir + "\n")
 
         print(
             "Aylık kayıt dosyası güncellendi."
@@ -346,8 +328,9 @@ def aylik_gonderilenleri_kaydet(hisseler):
 
 def telegram_gonder(mesaj):
 
+    # DÜZELTİLDİ
     url = (
-        "https://api.telegram.org/"
+        f"https://api.telegram.org/"
         f"bot{TELEGRAM_TOKEN}/sendMessage"
     )
 
@@ -366,6 +349,13 @@ def telegram_gonder(mesaj):
             "Telegram:",
             response.status_code
         )
+
+        if not response.ok:
+
+            print(
+                "Telegram cevap:",
+                response.text[:500]
+            )
 
         return response.ok
 
@@ -386,9 +376,7 @@ def telegram_gonder(mesaj):
 
 def piyasa_acik_mi():
 
-    now = datetime.now(
-        ISTANBUL
-    )
+    now = datetime.now(ISTANBUL)
 
     if now.weekday() >= 5:
         return False
@@ -404,6 +392,94 @@ def piyasa_acik_mi():
         <= dakika
         <= 18 * 60 + 10
     )
+
+
+# ============================================================
+# PLANLI TARAMA SAATİ
+# ============================================================
+
+def planli_tarama_zamani_mi():
+
+    now = datetime.now(ISTANBUL)
+
+    if now.weekday() >= 5:
+        return False
+
+    dakika = (
+        now.hour * 60
+        +
+        now.minute
+    )
+
+    sabah_baslangic = (
+        SABAH_BASLANGIC_SAAT * 60
+        +
+        SABAH_BASLANGIC_DAKIKA
+    )
+
+    tarama_bitis = (
+        TARAMA_BITIS_SAAT * 60
+        +
+        TARAMA_BITIS_DAKIKA
+    )
+
+    return (
+        sabah_baslangic
+        <= dakika
+        <
+        tarama_bitis
+    )
+
+
+# ============================================================
+# TARİH / SAAT BİLGİSİ
+# ============================================================
+
+def tarama_donemi():
+
+    now = datetime.now(ISTANBUL)
+
+    dakika = (
+        now.hour * 60
+        +
+        now.minute
+    )
+
+    sabah_baslangic = (
+        SABAH_BASLANGIC_SAAT * 60
+        +
+        SABAH_BASLANGIC_DAKIKA
+    )
+
+    ogle_baslangic = (
+        OGLE_BASLANGIC_SAAT * 60
+        +
+        OGLE_BASLANGIC_DAKIKA
+    )
+
+    tarama_bitis = (
+        TARAMA_BITIS_SAAT * 60
+        +
+        TARAMA_BITIS_DAKIKA
+    )
+
+    if (
+        sabah_baslangic
+        <= dakika
+        <
+        ogle_baslangic
+    ):
+        return "09:50-14:00"
+
+    if (
+        ogle_baslangic
+        <= dakika
+        <
+        tarama_bitis
+    ):
+        return "14:00-18:00"
+
+    return "PASİF"
 
 
 # ============================================================
@@ -440,13 +516,9 @@ def rsi_hesapla(close):
 
     delta = close.diff()
 
-    kazanc = delta.clip(
-        lower=0
-    )
+    kazanc = delta.clip(lower=0)
 
-    kayip = -delta.clip(
-        upper=0
-    )
+    kayip = -delta.clip(upper=0)
 
     ort_kazanc = kazanc.ewm(
         alpha=1 / RSI_PERIOD,
@@ -596,10 +668,7 @@ def adx_gosterge(adx):
 # VERİ AL
 # ============================================================
 
-def veri_al(
-    symbol,
-    period="6mo"
-):
+def veri_al(symbol, period="6mo"):
 
     for deneme in range(
         1,
@@ -608,9 +677,7 @@ def veri_al(
 
         try:
 
-            ticker = bp.Ticker(
-                symbol
-            )
+            ticker = bp.Ticker(symbol)
 
             df = ticker.history(
                 period=period
@@ -639,9 +706,7 @@ def veri_al(
                     f"{bekleme} sn bekleniyor"
                 )
 
-                time.sleep(
-                    bekleme
-                )
+                time.sleep(bekleme)
 
                 continue
 
@@ -684,13 +749,8 @@ def fibonacci_seviyeleri(df):
     if fib_high <= fib_low:
         return None
 
-    high_index = (
-        high_series.idxmax()
-    )
-
-    low_index = (
-        low_series.idxmin()
-    )
+    high_index = high_series.idxmax()
+    low_index = low_series.idxmin()
 
     yukselis = (
         low_index < high_index
@@ -748,16 +808,12 @@ def fibonacci_seviyeleri(df):
 
 def fib_analiz(df, fiyat):
 
-    fib = fibonacci_seviyeleri(
-        df
-    )
+    fib = fibonacci_seviyeleri(df)
 
     if fib is None:
         return None
 
-    seviyeler = fib[
-        "seviyeler"
-    ]
+    seviyeler = fib["seviyeler"]
 
     alt = []
 
@@ -817,9 +873,7 @@ def fib_analiz(df, fiyat):
         else None
     )
 
-    fib100 = seviyeler[
-        "1.000"
-    ]
+    fib100 = seviyeler["1.000"]
 
     tepe_potansiyel = (
         (
@@ -954,9 +1008,6 @@ def sinyal_gucu_hesapla(
 
 # ============================================================
 # ORTAK HİSSE DETAYLARI
-#
-# Aylık MACD sinyali günlük sinyal şartlarına bağlı değildir.
-# Fakat Telegram mesajında aynı bilgiler gösterilir.
 # ============================================================
 
 def hisse_detaylarini_hazirla(
@@ -1004,15 +1055,11 @@ def hisse_detaylarini_hazirla(
 
         df["BASE"] = (
             df["High"]
-            .rolling(
-                BASE_PERIOD
-            )
+            .rolling(BASE_PERIOD)
             .max()
             +
             df["Low"]
-            .rolling(
-                BASE_PERIOD
-            )
+            .rolling(BASE_PERIOD)
             .min()
         ) / 2
 
@@ -1142,39 +1189,25 @@ def hisse_detaylarini_hazirla(
                 stop_bilgi[1],
 
             "fib_levels":
-                fib_sonuc[
-                    "seviyeler"
-                ],
+                fib_sonuc["seviyeler"],
 
             "fib_low":
-                fib_sonuc[
-                    "fib"
-                ]["low"],
+                fib_sonuc["fib"]["low"],
 
             "fib_high":
-                fib_sonuc[
-                    "fib"
-                ]["high"],
+                fib_sonuc["fib"]["high"],
 
             "fib_yon":
-                fib_sonuc[
-                    "fib"
-                ]["yon"],
+                fib_sonuc["fib"]["yon"],
 
             "fiyat_fib":
-                fib_sonuc[
-                    "fiyat_seviyesi"
-                ],
+                fib_sonuc["fiyat_seviyesi"],
 
             "tepe_potansiyel":
-                fib_sonuc[
-                    "tepe_potansiyel"
-                ],
+                fib_sonuc["tepe_potansiyel"],
 
             "yakin_ust":
-                fib_sonuc[
-                    "yakin_ust"
-                ]
+                fib_sonuc["yakin_ust"]
         }
 
         sonuc["sinyal_gucu"] = (
@@ -1261,15 +1294,11 @@ def analiz_et(symbol):
 
         df["BASE"] = (
             df["High"]
-            .rolling(
-                BASE_PERIOD
-            )
+            .rolling(BASE_PERIOD)
             .max()
             +
             df["Low"]
-            .rolling(
-                BASE_PERIOD
-            )
+            .rolling(BASE_PERIOD)
             .min()
         ) / 2
 
@@ -1281,7 +1310,6 @@ def analiz_et(symbol):
 
         onceki = df.iloc[-2]
         son = df.iloc[-1]
-        hafta_once = df.iloc[-6]
 
         ichimoku_sinyal = (
             onceki["BASE"]
@@ -1352,25 +1380,7 @@ def analiz_et(symbol):
 
 
 # ============================================================
-# AYLIK MACD
-#
-# Günlük veriler aylık mumlara dönüştürülür.
-#
-# MACD:
-#   EMA 12 - EMA 26
-#
-# Signal:
-#   MACD'nin EMA 9'u
-#
-# SİNYAL:
-#   Önceki aylık mum:
-#       MACD <= Signal
-#
-#   İçinde bulunduğumuz aylık mum:
-#       MACD > Signal
-#
-# Böylece ay sonunu beklemeden mevcut ay içinde
-# yukarı kesişim yakalanır.
+# AYLIK MACD HESAPLA
 # ============================================================
 
 def aylik_macd_hesapla(df):
@@ -1388,7 +1398,6 @@ def aylik_macd_hesapla(df):
 
         aylik = df.copy()
 
-        # Tarih index kontrolü
         if not isinstance(
             aylik.index,
             pd.DatetimeIndex
@@ -1462,10 +1471,6 @@ def aylik_macd_hesapla(df):
         onceki = aylik_macd.iloc[-2]
         son = aylik_macd.iloc[-1]
 
-        # ====================================================
-        # ANA ŞART
-        # ====================================================
-
         yukari_kesisim = (
             onceki["MACD"]
             <=
@@ -1504,6 +1509,10 @@ def aylik_macd_hesapla(df):
         return None
 
 
+# ============================================================
+# AYLIK MACD ANALİZ
+# ============================================================
+
 def aylik_macd_analiz_et(symbol):
 
     try:
@@ -1513,7 +1522,7 @@ def aylik_macd_analiz_et(symbol):
             symbol
         )
 
-        # Aylık MACD için uzun geçmiş
+        # Aylık MACD için 5 yıllık veri
         df_uzun = veri_al(
             symbol,
             AYLIK_VERI_PERIYODU
@@ -1534,12 +1543,8 @@ def aylik_macd_analiz_et(symbol):
         if not macd_sonuc["sinyal"]:
             return None
 
-        # Telegram'da gösterilecek mevcut fiyat/FIB/ADX/
-        # RSI/EMA vb. bilgileri günlük veriden hazırla.
-        #
-        # Böylece aylık MACD mesajı da mevcut mesajla
-        # aynı formatı kullanır.
-
+        # Telegram mesajındaki mevcut günlük
+        # bilgiler için son 6 aylık günlük veri
         df_gunluk = veri_al(
             symbol,
             "6mo"
@@ -1737,91 +1742,25 @@ def mesaj_hazirla(
 
 
 # ============================================================
-# MAIN
+# GÜNLÜK TARAMA
 # ============================================================
 
 BIST100_GLOBAL = set()
 
 
-def main():
-
-    global BIST100_GLOBAL
+def gunluk_tarama(tarama_listesi):
 
     print(
         "\n===================================="
     )
 
     print(
-        "TRADING BOT BASLADI"
+        "🟢 GÜNLÜK TARAMA"
     )
 
     print(
         "===================================="
     )
-
-    now = datetime.now(
-        ISTANBUL
-    )
-
-    print(
-        "Saat:",
-        now.strftime(
-            "%d.%m.%Y %H:%M"
-        )
-    )
-
-    if not piyasa_acik_mi():
-
-        print(
-            "Piyasa saati disinda."
-        )
-
-        return
-
-    # ========================================================
-    # BIST LİSTELERİ
-    # ========================================================
-
-    print(
-        "BIST 100 listesi aliniyor..."
-    )
-
-    bist100 = (
-        bist100_listesi()
-    )
-
-    if not bist100:
-
-        print(
-            "BIST 100 listesi alınamadı."
-        )
-
-        return
-
-    BIST100_GLOBAL = bist100
-
-    tarama_listesi = sorted(
-        bist100 | ANA_PAZAR
-    )
-
-    print(
-        "BIST 100 hisse sayisi:",
-        len(bist100)
-    )
-
-    print(
-        "Ana Pazar hisse sayisi:",
-        len(ANA_PAZAR)
-    )
-
-    print(
-        "Toplam benzersiz taranacak hisse:",
-        len(tarama_listesi)
-    )
-
-    # ========================================================
-    # GÜNLÜK TARAMA
-    # ========================================================
 
     gonderilenler = (
         gonderilenleri_oku()
@@ -1837,42 +1776,7 @@ def main():
     tamamlanan = 0
 
     baslangic_zamani = (
-        datetime.now(
-            ISTANBUL
-        )
-    )
-
-    print(
-        "\n⚡ Günlük hızlı tarama başlıyor..."
-    )
-
-    print(
-        f"⚡ Aynı anda "
-        f"{MAX_WORKERS} hisse taranacak."
-    )
-
-    print(
-        "📏 EMA14 minimum mesafe: +2%"
-    )
-
-    print(
-        "📊 RSI14: 50 yukarı kesiş + yükseliş"
-    )
-
-    print(
-        "📈 EMA14: yükseliş"
-    )
-
-    print(
-        "☁️ Ichimoku Base: yukarı kırılım"
-    )
-
-    print(
-        "📐 Fibonacci: Son 100 günlük dip/tepe"
-    )
-
-    print(
-        "🛑 STOP: Fiyatın altındaki en yakın Fib"
+        datetime.now(ISTANBUL)
     )
 
     with ThreadPoolExecutor(
@@ -1886,8 +1790,7 @@ def main():
                 symbol
             ): symbol
 
-            for symbol
-            in tarama_listesi
+            for symbol in tarama_listesi
         }
 
         for gelecek in as_completed(
@@ -1900,9 +1803,7 @@ def main():
 
             try:
 
-                sonuc = (
-                    gelecek.result()
-                )
+                sonuc = gelecek.result()
 
                 tamamlanan += 1
 
@@ -1921,6 +1822,8 @@ def main():
                             sonuc
                         )
 
+                        # Aynı tarama içinde tekrar
+                        # listeye girmesini engelle
                         gonderilenler.add(
                             symbol
                         )
@@ -1945,9 +1848,7 @@ def main():
                 )
 
     sure = (
-        datetime.now(
-            ISTANBUL
-        )
+        datetime.now(ISTANBUL)
         -
         baslangic_zamani
     ).total_seconds()
@@ -1959,25 +1860,9 @@ def main():
     )
 
     print(
-        "\n===================================="
-    )
-
-    print(
-        "GÜNLÜK TARAMA TAMAMLANDI"
-    )
-
-    print(
-        "===================================="
-    )
-
-    print(
         "Yeni bulunan günlük hisse:",
         len(bulunan)
     )
-
-    # ========================================================
-    # GÜNLÜK TELEGRAM
-    # ========================================================
 
     basariyla_gonderilenler = set()
 
@@ -1990,9 +1875,7 @@ def main():
             "🟢 YENİ"
         )
 
-        if telegram_gonder(
-            mesaj
-        ):
+        if telegram_gonder(mesaj):
 
             basariyla_gonderilenler.add(
                 symbol
@@ -2004,22 +1887,34 @@ def main():
             basariyla_gonderilenler
         )
 
+        print(
+            "Günlük gönderilen hisse:",
+            ", ".join(
+                sorted(
+                    basariyla_gonderilenler
+                )
+            )
+        )
+
     else:
 
         print(
             "Yeni gönderilen günlük hisse yok."
         )
 
-    # ========================================================
-    # AYLIK MACD TARAMASI
-    # ========================================================
+
+# ============================================================
+# AYLIK MACD TARAMA
+# ============================================================
+
+def aylik_macd_tarama(tarama_listesi):
 
     print(
         "\n===================================="
     )
 
     print(
-        "🔴 AYLIK MACD TARAMASI BAŞLIYOR"
+        "🔴 AYLIK MACD TARAMASI"
     )
 
     print(
@@ -2035,7 +1930,8 @@ def main():
     )
 
     print(
-        "🔴 ŞART: MACD Level aşağıdan yukarı Signal kesişimi"
+        "🔴 ŞART: MACD Level aşağıdan yukarı "
+        "Signal kesişimi"
     )
 
     print(
@@ -2060,9 +1956,7 @@ def main():
     aylik_tamamlanan = 0
 
     aylik_baslangic = (
-        datetime.now(
-            ISTANBUL
-        )
+        datetime.now(ISTANBUL)
     )
 
     with ThreadPoolExecutor(
@@ -2076,8 +1970,7 @@ def main():
                 symbol
             ): symbol
 
-            for symbol
-            in tarama_listesi
+            for symbol in tarama_listesi
         }
 
         for gelecek in as_completed(
@@ -2090,9 +1983,7 @@ def main():
 
             try:
 
-                sonuc = (
-                    gelecek.result()
-                )
+                sonuc = gelecek.result()
 
                 aylik_tamamlanan += 1
 
@@ -2116,6 +2007,8 @@ def main():
                             sonuc
                         )
 
+                        # Aynı tarama içinde tekrar
+                        # eklenmesini engelle
                         aylik_gonderilenler.add(
                             symbol
                         )
@@ -2140,9 +2033,7 @@ def main():
                 )
 
     aylik_sure = (
-        datetime.now(
-            ISTANBUL
-        )
+        datetime.now(ISTANBUL)
         -
         aylik_baslangic
     ).total_seconds()
@@ -2154,25 +2045,9 @@ def main():
     )
 
     print(
-        "\n===================================="
-    )
-
-    print(
-        "🔴 AYLIK MACD TARAMASI TAMAMLANDI"
-    )
-
-    print(
-        "===================================="
-    )
-
-    print(
         "Yeni aylık MACD hissesi:",
         len(aylik_bulunan)
     )
-
-    # ========================================================
-    # AYLIK TELEGRAM
-    # ========================================================
 
     aylik_basariyla_gonderilenler = set()
 
@@ -2185,13 +2060,7 @@ def main():
             "🔴 AYLIK"
         )
 
-        # İstersen MACD değerlerini de mesajın en altına
-        # ekleyebilirsin. Şimdilik mevcut mesaj formatını
-        # birebir koruyoruz.
-
-        if telegram_gonder(
-            mesaj
-        ):
+        if telegram_gonder(mesaj):
 
             aylik_basariyla_gonderilenler.add(
                 symbol
@@ -2203,18 +2072,130 @@ def main():
             aylik_basariyla_gonderilenler
         )
 
+        print(
+            "Aylık gönderilen hisse:",
+            ", ".join(
+                sorted(
+                    aylik_basariyla_gonderilenler
+                )
+            )
+        )
+
     else:
 
         print(
             "Yeni gönderilen aylık hisse yok."
         )
 
+
+# ============================================================
+# TEK TARAMA
+#
+# Günlük + aylık MACD aynı çalışma içinde.
+# ============================================================
+
+def tek_tarama():
+
+    global BIST100_GLOBAL
+
+    print(
+        "\n\n"
+        "################################################"
+    )
+
+    print(
+        "🚀 PLANLI TARAMA BAŞLADI"
+    )
+
+    print(
+        "🕐 Saat:",
+        datetime.now(
+            ISTANBUL
+        ).strftime(
+            "%d.%m.%Y %H:%M:%S"
+        )
+    )
+
+    print(
+        "📌 Dönem:",
+        tarama_donemi()
+    )
+
+    print(
+        "################################################"
+    )
+
+    if not piyasa_acik_mi():
+
+        print(
+            "Piyasa saati dışında."
+        )
+
+        return
+
+    # ========================================================
+    # BIST LİSTELERİ
+    # ========================================================
+
+    print(
+        "BIST 100 listesi alınıyor..."
+    )
+
+    bist100 = (
+        bist100_listesi()
+    )
+
+    if not bist100:
+
+        print(
+            "BIST 100 listesi alınamadı."
+        )
+
+        return
+
+    BIST100_GLOBAL = bist100
+
+    tarama_listesi = sorted(
+        bist100 | ANA_PAZAR
+    )
+
+    print(
+        "BIST 100 hisse sayısı:",
+        len(bist100)
+    )
+
+    print(
+        "Ana Pazar hisse sayısı:",
+        len(ANA_PAZAR)
+    )
+
+    print(
+        "Toplam benzersiz taranacak hisse:",
+        len(tarama_listesi)
+    )
+
+    # ========================================================
+    # GÜNLÜK
+    # ========================================================
+
+    gunluk_tarama(
+        tarama_listesi
+    )
+
+    # ========================================================
+    # AYLIK MACD
+    # ========================================================
+
+    aylik_macd_tarama(
+        tarama_listesi
+    )
+
     print(
         "\n===================================="
     )
 
     print(
-        "BOT TAMAMLANDI"
+        "✅ BU PLANLI TARAMA TAMAMLANDI"
     )
 
     print(
@@ -2223,9 +2204,272 @@ def main():
 
 
 # ============================================================
+# SONRAKİ PLANLI TARAMA ZAMANI
+# ============================================================
+
+def sonraki_tarama_zamani_hesapla():
+
+    now = datetime.now(ISTANBUL)
+
+    bugun_09_50 = now.replace(
+        hour=SABAH_BASLANGIC_SAAT,
+        minute=SABAH_BASLANGIC_DAKIKA,
+        second=0,
+        microsecond=0
+    )
+
+    bugun_18_00 = now.replace(
+        hour=TARAMA_BITIS_SAAT,
+        minute=TARAMA_BITIS_DAKIKA,
+        second=0,
+        microsecond=0
+    )
+
+    # --------------------------------------------------------
+    # Şu anda 09:50'den önce
+    # --------------------------------------------------------
+
+    if now < bugun_09_50:
+
+        return bugun_09_50
+
+    # --------------------------------------------------------
+    # Şu anda tarama saatleri içinde
+    # --------------------------------------------------------
+
+    if now < bugun_18_00:
+
+        return now + timedelta(
+            minutes=TARAMA_ARALIGI_DAKIKA
+        )
+
+    # --------------------------------------------------------
+    # 18:00 geçtiyse sonraki iş günü 09:50
+    # --------------------------------------------------------
+
+    sonraki_gun = (
+        now + timedelta(days=1)
+    )
+
+    while sonraki_gun.weekday() >= 5:
+
+        sonraki_gun += timedelta(
+            days=1
+        )
+
+    return sonraki_gun.replace(
+        hour=SABAH_BASLANGIC_SAAT,
+        minute=SABAH_BASLANGIC_DAKIKA,
+        second=0,
+        microsecond=0
+    )
+
+
+# ============================================================
+# OTOMATİK PLANLAYICI
+#
+# 09:50 - 14:00
+# 14:00 - 18:00
+#
+# Her iki dönem de aynı günlük + aylık taramayı çalıştırır.
+# ============================================================
+
+def scheduler():
+
+    print(
+        "\n\n"
+        "================================================"
+    )
+
+    print(
+        "🤖 BIST TELEGRAM BOTU OTOMATİK PLANLAYICI"
+    )
+
+    print(
+        "================================================"
+    )
+
+    print(
+        "🟢 Sabah çalışma: 09:50 - 14:00"
+    )
+
+    print(
+        "🔵 Öğleden sonra çalışma: 14:00 - 18:00"
+    )
+
+    print(
+        f"⏱️ Tarama aralığı: "
+        f"{TARAMA_ARALIGI_DAKIKA} dakika"
+    )
+
+    print(
+        "📌 Günlük aynı hisse aynı gün 1 kez"
+    )
+
+    print(
+        "📌 Aylık MACD aynı hisse aynı ay 1 kez"
+    )
+
+    print(
+        "================================================"
+    )
+
+    son_tarama_tarihi = None
+
+    while True:
+
+        try:
+
+            now = datetime.now(
+                ISTANBUL
+            )
+
+            # ------------------------------------------------
+            # HAFTA SONU
+            # ------------------------------------------------
+
+            if now.weekday() >= 5:
+
+                sonraki = sonraki_tarama_zamani_hesapla()
+
+                print(
+                    f"\n📅 Hafta sonu."
+                )
+
+                print(
+                    "⏰ Sonraki çalışma:",
+                    sonraki.strftime(
+                        "%d.%m.%Y %H:%M:%S"
+                    )
+                )
+
+                time.sleep(60)
+
+                continue
+
+            # ------------------------------------------------
+            # AKTİF PLANLI ÇALIŞMA
+            # ------------------------------------------------
+
+            if planli_tarama_zamani_mi():
+
+                simdi = datetime.now(
+                    ISTANBUL
+                )
+
+                # Aynı dakikada tekrar başlatma
+                # engeli
+                mevcut_slot = (
+                    simdi.strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+                )
+
+                if (
+                    son_tarama_tarihi
+                    !=
+                    mevcut_slot
+                ):
+
+                    print(
+                        "\n⏰ PLANLI ÇALIŞMA ZAMANI"
+                    )
+
+                    print(
+                        "🕐",
+                        simdi.strftime(
+                            "%d.%m.%Y %H:%M:%S"
+                        )
+                    )
+
+                    print(
+                        "📌 Dönem:",
+                        tarama_donemi()
+                    )
+
+                    # Taramayı başlat
+                    tek_tarama()
+
+                    # Bu taramanın slotunu kaydet
+                    son_tarama_tarihi = mevcut_slot
+
+                    print(
+                        "\n⏳ Bir sonraki planlı tarama bekleniyor..."
+                    )
+
+                # ------------------------------------------------
+                # ÖNEMLİ:
+                #
+                # Taramadan sonra 5 dakika bekle.
+                # Böylece:
+                #
+                # 09:50
+                # 09:55
+                # 10:00
+                # ...
+                # 13:55
+                # 14:00
+                # 14:05
+                # ...
+                # 17:55
+                #
+                # şeklinde devam eder.
+                # ------------------------------------------------
+
+                time.sleep(
+                    TARAMA_ARALIGI_DAKIKA * 60
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # AKTİF ÇALIŞMA DIŞI
+            # ------------------------------------------------
+
+            sonraki = (
+                sonraki_tarama_zamani_hesapla()
+            )
+
+            print(
+                "\r"
+                f"💤 Beklemede | "
+                f"Saat: {now.strftime('%H:%M:%S')} | "
+                f"Sonraki tarama: "
+                f"{sonraki.strftime('%d.%m %H:%M')}",
+                end="",
+                flush=True
+            )
+
+            # 30 saniyede bir kontrol
+            time.sleep(30)
+
+        except KeyboardInterrupt:
+
+            print(
+                "\n\n🛑 Bot kullanıcı tarafından durduruldu."
+            )
+
+            break
+
+        except Exception as hata:
+
+            print(
+                "\n\n🚨 SCHEDULER HATASI:",
+                type(hata).__name__,
+                str(hata)
+            )
+
+            print(
+                "⏳ 60 saniye sonra tekrar denenecek..."
+            )
+
+            time.sleep(60)
+
+
+# ============================================================
 # ÇALIŞTIR
 # ============================================================
 
 if __name__ == "__main__":
 
-    main()
+    scheduler()
