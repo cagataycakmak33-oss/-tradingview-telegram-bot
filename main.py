@@ -17,7 +17,7 @@ TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
-AYLIK_MACD_DOSYA = "gonderilen_aylik_macd.txt"
+AYLIK_GONDERILEN_DOSYA = "gonderilen_aylik_hisseler.txt"
 
 EMA_PERIOD = 14
 RSI_PERIOD = 14
@@ -25,7 +25,21 @@ BASE_PERIOD = 26
 ADX_PERIOD = 14
 
 EMA_MIN_DISTANCE = 0.02
+
+# TradingView ile aynı mantık:
+# Son 100 günlük mum içerisindeki dip ve tepe
 FIB_LOOKBACK = 100
+
+# ============================================================
+# AYLIK MACD
+# ============================================================
+
+MACD_FAST = 12
+MACD_SLOW = 26
+MACD_SIGNAL = 9
+
+# Aylık MACD için yeterli geçmiş
+AYLIK_VERI_PERIYODU = "5y"
 
 MAX_WORKERS = 4
 MAX_RETRIES = 3
@@ -38,92 +52,31 @@ ISTANBUL = ZoneInfo("Europe/Istanbul")
 # ============================================================
 
 ANA_PAZAR = {
-    "A1CAP", "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES",
-    "AFYON", "AGESA", "AGHOL", "AGROT", "AGYO", "AHGAZ",
-    "AKBNK", "AKCNS", "AKENR", "AKFGY", "AKFYE", "AKGRT",
-    "AKMGY", "AKSA", "AKSEN", "AKSGY", "ALARK", "ALBRK",
-    "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKIM", "ALKLC",
-    "ALTNY", "ALVES", "ANELE", "ANGEN", "ANHYT", "ANSGR",
-    "ARASE", "ARCLK", "ARDYZ", "ARENA", "ARSAN", "ARTMS",
-    "ARZUM", "ASELS", "ASGYO", "ASTOR", "ATAGY", "ATAKP",
-    "ATATP", "ATEKS", "AVGYO", "AVHOL", "AVOD", "AVPGY",
-    "AYCES", "AYDEM", "AYEN", "AYES", "AYGAZ", "AZTEK",
-    "BAGFS", "BAHKM", "BAKAB", "BALAT", "BANVT", "BARMA",
-    "BASCM", "BASGZ", "BAYRK", "BEGYO", "BERA", "BEYAZ",
-    "BFREN", "BIGEN", "BIGCH", "BIMAS", "BINBN", "BINHO",
-    "BIOEN", "BIZIM", "BJKAS", "BLCYT", "BMSCH", "BMSTL",
-    "BNTAS", "BOBET", "BORLS", "BORSK", "BOSSA", "BRISA",
-    "BRKSN", "BRKVY", "BRLSM", "BRMEN", "BRSAN", "BRYAT",
-    "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", "BVSAN",
-    "BYDNR", "CANTE", "CASA", "CATES", "CCOLA", "CELHA",
-    "CEMAS", "CEMTS", "CEMZY", "CEOEM", "CGCAM", "CIMSA",
-    "CLEBI", "CMBTN", "CONSE", "COSMO", "CRDFA", "CRFSA",
-    "CUSAN", "CVKMD", "CWENE", "DAGI", "DAPGM", "DARDL",
-    "DCTTR", "DENGE", "DERHL", "DERIM", "DESA", "DESPC",
-    "DEVA", "DGATE", "DGGYO", "DGNMO", "DITAS", "DMRGD",
-    "DMSAS", "DNISI", "DOAS", "DOBUR", "DOCO", "DOFER",
-    "DOGUB", "DOHOL", "DOKTA", "DSTKF", "DUNYH", "DYOBY",
-    "DZGYO", "EBEBK", "ECILC", "ECZYT", "EDATA", "EDIP",
-    "EFORC", "EGEEN", "EGEPO", "EGGUB", "EGPRO", "EGSER",
-    "EKGYO", "EKOS", "EKSUN", "ELITE", "EMKEL", "ENDAE",
-    "ENERY", "ENJSA", "ENKAI", "ENSRI", "ENTRA", "ERBOS",
-    "EREGL", "ERSU", "ESCAR", "ESCOM", "ESEN", "ETILR",
-    "ETYAT", "EUHOL", "EUKYO", "EUPWR", "EUREN", "EUYO",
-    "EYGYO", "FADE", "FENER", "FLAP", "FMIZP", "FONET",
-    "FORMT", "FORTE", "FRIGO", "FROTO", "FZLGY", "GARAN",
-    "GEDIK", "GEDZA", "GENIL", "GENTS", "GEREL", "GESAN",
-    "GIPTA", "GLBMD", "GLCVY", "GLRMK", "GLYHO", "GMTAS",
-    "GOKNR", "GOLTS", "GOODY", "GOZDE", "GRNYO", "GRSEL",
-    "GRTHO", "GSDDE", "GSDHO", "GSRAY", "GUBRF", "GWIND",
-    "HATEK", "HATSN", "HDFGS", "HEDEF", "HEKTS", "HKTM",
-    "HLGYO", "HOROZ", "HRKET", "HTTBT", "HUBVC", "HUNER",
-    "HURGZ", "ICBCT", "ICUGS", "IDGYO", "IEYHO", "IHAAS",
-    "IHEVA", "IHGZT", "IHLAS", "IHLGM", "IHYAY", "IMASM",
-    "INDES", "INFO", "INGRM", "INTEM", "INVEO", "INVES",
-    "IPEKE", "ISATR", "ISBIR", "ISBTR", "ISCTR", "ISDMR",
-    "ISFIN", "ISGSY", "ISGYO", "ISKPL", "ISKUR", "ISMEN",
-    "ISSEN", "IZENR", "IZFAS", "IZINV", "IZMDC", "JANTS",
-    "KAPLM", "KAREL", "KARSN", "KARTN", "KARYE", "KATMR",
-    "KAYSE", "KBORU", "KCAER", "KCHOL", "KENT", "KERVT",
-    "KFEIN", "KGYO", "KIMMR", "KLGYO", "KLKIM", "KLMSN",
-    "KLRHO", "KLSER", "KLYPV", "KMPUR", "KNFRT", "KONKA",
-    "KONTR", "KONYA", "KOPOL", "KORDS", "KOTON", "KOZAA",
-    "KOZAL", "KRDMA", "KRDMB", "KRDMD", "KRGYO", "KRONT",
-    "KRPLS", "KRSTL", "KRTEK", "KRVGD", "KTSKR", "KUTPO",
-    "KUYAS", "KZBGY", "LIDER", "LIDFA", "LINK", "LMKDC",
-    "LOGO", "LRSHO", "LUKSK", "LYDHO", "LYDYE", "MAALT",
-    "MACKO", "MAGEN", "MAKIM", "MAKTK", "MANAS", "MARBL",
-    "MAVI", "MEDTR", "MEGMT", "MEKAG", "MEPET", "MERCN",
-    "MERIT", "MERKO", "METRO", "MGROS", "MIATK", "MIPAZ",
-    "MNDRS", "MNDTR", "MOBTL", "MOGAN", "MPARK", "MRGYO",
-    "MRSHL", "MSGYO", "MTRKS", "MTRYO", "MZHLD", "NATEN",
-    "NETAS", "NIBAS", "NTGAZ", "NTHOL", "NUHCM", "OBAMS",
-    "ODAS", "ODINE", "OFSYM", "ONCSM", "ONRYT", "ORCAY",
-    "ORGE", "OSMEN", "OSTIM", "OTKAR", "OTTO", "OYAKC",
-    "OYAYO", "OYLUM", "OYYAT", "OZKGY", "OZRDN", "OZSUB",
-    "PAGYO", "PAMEL", "PAPIL", "PARSN", "PASEU", "PCILT",
-    "PEGYO", "PEKGY", "PENTA", "PETKM", "PETUN", "PGSUS",
-    "PINSU", "PKART", "PKENT", "PLTUR", "PNLSN", "PNSUT",
-    "POLHO", "POLTK", "PRDGS", "PRKAB", "PRKME", "PSGYO",
-    "QNBFL", "QNBTR", "QUAGR", "RALYH", "RAYSG", "REEDR",
-    "RGYAS", "RNPOL", "RODRG", "RTALB", "RUBNS", "RUZYE",
-    "SAFKR", "SAHOL", "SAMAT", "SANEL", "SANFM", "SANKO",
-    "SARKY", "SASA", "SAYAS", "SDTTR", "SEGYO", "SEKFK",
-    "SEKUR", "SELEC", "SELGD", "SELVA", "SEYKM", "SILVR",
-    "SISE", "SKBNK", "SKTAS", "SMART", "SMRTG", "SNGYO",
-    "SNICA", "SOKE", "SOKM", "SONME", "SRVGY", "SUMAS",
-    "SUNTK", "SURGY", "SUWEN", "TABGD", "TARKM", "TATEN",
-    "TATGD", "TAVHL", "TCELL", "TDGYO", "TEKTU", "TERA",
-    "TEZOL", "TGSAS", "THYAO", "TKFEN", "TKNSA", "TLMAN",
-    "TMPOL", "TMSN", "TNZTP", "TOASO", "TRCAS", "TRGYO",
-    "TRILC", "TSGYO", "TSKB", "TSPOR", "TTKOM", "TTRAK",
-    "TUCLK", "TUKAS", "TUPRS", "TUREX", "TURGG", "TURSG",
-    "UFUK", "ULAS", "ULKER", "ULUSE", "ULUUN", "UNLU",
-    "USAK", "VAKBN", "VAKFN", "VAKKO", "VANGD", "VERTU",
-    "VERUS", "VESBE", "VESTL", "VKFYO", "VKGYO", "VKING",
-    "VRGYO", "YAPRK", "YATAS", "YAYLA", "YBTAS", "YEOTK",
-    "YESIL", "YGGYO", "YKBNK", "YKSLN", "YONGA", "YUNSA",
-    "YYAPI", "YYLGD", "ZEDUR", "ZOREN"
+    "A1YEN","CATES","FRIGO","LKMNH","PRKAB","ACSEL","CELHA","FRMPL","LUKSK","PRKME",
+    "ADEL","CEMAS","GARFA","LXGYO","PRZMA","ADESE","CEMTS","GEDZA","LYDYE","PSDTC",
+    "AFYON","CEOEM","GENKM","MAALT","RAYSG","AHSGY","CMBTN","GEREL","MACKO","RTALB",
+    "AKENR","CONSE","GLRYH","MAKIM","RUBNS","AKHAN","CRFSA","GOODY","MAKTK","RUZYE",
+    "AKMGY","CUSAN","GSDDE","MANAS","SANFM","AKSUE","DAGI","GSDHO","MARBL","SANKO",
+    "ALCAR","DARDL","GUNDG","MARKA","SAYAS","ALCTL","DCTTR","GZNMI","MARMR","SEGMN",
+    "ALKA","DENGE","HATEK","MARTI","SEGYO","ALKIM","DERHL","HDFGS","MCARD","SELVA",
+    "ALKLC","DERIM","HEDEF","MEDTR","SERNT","ALVES","DESA","HKTM","MEKAG","SKTAS",
+    "ANELE","DESPC","HOROZ","MERCN","SKYMD","ANGEN","DGATE","HUNER","MERCN","SMART",
+    "ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU","SNICA",
+    "ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS","SVGYO",
+    "ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO","TBORG",
+    "AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO","TEKTU",
+    "AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS","TGSAS",
+    "BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM","TSGYO",
+    "BAKAB","EDIP","IZINV","ONCSM","TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG",
+    "BAYRK","EGEPO","JANTS","KAPLM","OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO",
+    "ULUFA","BESTE","EKOS","KFEIN","ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU",
+    "BIGCH","ELITE","KIMMR","OZYSR","VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU",
+    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","VKING",
+    "BLUME","EPLAS","KNFRT","PENGD","VRGYO","BMSCH","ERBOS","KONKA","PETUN","YAPRK",
+    "BMSTL","ERCB","KRONT","KRPLS","PINSU","YIGIT","BNTAS","ESCOM","ETILR","KRSTL",
+    "YAYLA","BRKVY","KRVGD","PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR",
+    "YKSLN","BULGS","FMIZP","KUTPO","PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN",
+    "FORMT","FORTE","LIDFA"
 }
 
 
@@ -132,15 +85,26 @@ ANA_PAZAR = {
 # ============================================================
 
 def gonderilenleri_oku():
+
+    bugun = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m-%d")
+
     if not os.path.exists(GONDERILEN_DOSYA):
         return set()
 
-    sonuc = set()
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-
     try:
-        with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as f:
-            for satir in f:
+
+        kayitlar = set()
+
+        with open(
+            GONDERILEN_DOSYA,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in dosya:
+
                 satir = satir.strip()
 
                 if not satir:
@@ -148,60 +112,232 @@ def gonderilenleri_oku():
 
                 parcalar = satir.split("|")
 
-                if len(parcalar) >= 2:
-                    if parcalar[0] == bugun:
-                        sonuc.add(parcalar[1])
+                if len(parcalar) == 2:
 
-    except Exception as e:
-        print("Günlük gönderilen dosyası okunamadı:", e)
+                    tarih, hisse = parcalar
 
-    return sonuc
+                    if tarih == bugun:
+                        kayitlar.add(
+                            hisse.upper()
+                        )
 
+        return kayitlar
 
-def gonderilen_kaydet(symbol):
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
+    except Exception as hata:
 
-    try:
-        with open(GONDERILEN_DOSYA, "a", encoding="utf-8") as f:
-            f.write(f"{bugun}|{symbol}\n")
+        print(
+            "Gönderilenler okunamadı:",
+            type(hata).__name__,
+            str(hata)
+        )
 
-    except Exception as e:
-        print("Günlük gönderim kaydı yazılamadı:", e)
-
-
-# ============================================================
-# AYLIK MACD KAYIT
-# ============================================================
-
-def aylik_macd_kayitlari_oku():
-    if not os.path.exists(AYLIK_MACD_DOSYA):
         return set()
 
-    sonuc = set()
+
+def gonderilenleri_kaydet(hisseler):
+
+    bugun = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m-%d")
 
     try:
-        with open(AYLIK_MACD_DOSYA, "r", encoding="utf-8") as f:
-            for satir in f:
+
+        mevcut = []
+
+        if os.path.exists(GONDERILEN_DOSYA):
+
+            with open(
+                GONDERILEN_DOSYA,
+                "r",
+                encoding="utf-8"
+            ) as dosya:
+
+                for satir in dosya:
+
+                    satir = satir.strip()
+
+                    if satir:
+                        mevcut.append(satir)
+
+        bugunku = {
+            satir
+            for satir in mevcut
+            if satir.startswith(
+                bugun + "|"
+            )
+        }
+
+        for hisse in hisseler:
+
+            bugunku.add(
+                f"{bugun}|{hisse.upper()}"
+            )
+
+        eski = [
+            satir
+            for satir in mevcut
+            if not satir.startswith(
+                bugun + "|"
+            )
+        ]
+
+        with open(
+            GONDERILEN_DOSYA,
+            "w",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in sorted(
+                eski + list(bugunku)
+            ):
+
+                dosya.write(
+                    satir + "\n"
+                )
+
+        print(
+            "Günlük kayıt dosyası güncellendi."
+        )
+
+    except Exception as hata:
+
+        print(
+            "Gönderilenler kaydedilemedi:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+
+# ============================================================
+# AYLIK GÖNDERİLENLER
+# ============================================================
+
+def aylik_gonderilenleri_oku():
+
+    bu_ay = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m")
+
+    if not os.path.exists(
+        AYLIK_GONDERILEN_DOSYA
+    ):
+        return set()
+
+    try:
+
+        kayitlar = set()
+
+        with open(
+            AYLIK_GONDERILEN_DOSYA,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in dosya:
+
                 satir = satir.strip()
 
-                if satir:
-                    sonuc.add(satir)
+                if not satir:
+                    continue
 
-    except Exception as e:
-        print("Aylık MACD kayıt dosyası okunamadı:", e)
+                parcalar = satir.split("|")
 
-    return sonuc
+                if len(parcalar) == 2:
+
+                    ay, hisse = parcalar
+
+                    if ay == bu_ay:
+                        kayitlar.add(
+                            hisse.upper()
+                        )
+
+        return kayitlar
+
+    except Exception as hata:
+
+        print(
+            "Aylık gönderilenler okunamadı:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return set()
 
 
-def aylik_macd_kaydet(sinyal_tipi, symbol, ay):
-    anahtar = f"{sinyal_tipi}|{symbol}|{ay}"
+def aylik_gonderilenleri_kaydet(hisseler):
+
+    bu_ay = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m")
 
     try:
-        with open(AYLIK_MACD_DOSYA, "a", encoding="utf-8") as f:
-            f.write(anahtar + "\n")
 
-    except Exception as e:
-        print("Aylık MACD kayıt yazılamadı:", e)
+        mevcut = []
+
+        if os.path.exists(
+            AYLIK_GONDERILEN_DOSYA
+        ):
+
+            with open(
+                AYLIK_GONDERILEN_DOSYA,
+                "r",
+                encoding="utf-8"
+            ) as dosya:
+
+                for satir in dosya:
+
+                    satir = satir.strip()
+
+                    if satir:
+                        mevcut.append(satir)
+
+        bu_ayki = {
+            satir
+            for satir in mevcut
+            if satir.startswith(
+                bu_ay + "|"
+            )
+        }
+
+        for hisse in hisseler:
+
+            bu_ayki.add(
+                f"{bu_ay}|{hisse.upper()}"
+            )
+
+        eski = [
+            satir
+            for satir in mevcut
+            if not satir.startswith(
+                bu_ay + "|"
+            )
+        ]
+
+        with open(
+            AYLIK_GONDERILEN_DOSYA,
+            "w",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in sorted(
+                eski + list(bu_ayki)
+            ):
+
+                dosya.write(
+                    satir + "\n"
+                )
+
+        print(
+            "Aylık kayıt dosyası güncellendi."
+        )
+
+    except Exception as hata:
+
+        print(
+            "Aylık kayıtlar kaydedilemedi:",
+            type(hata).__name__,
+            str(hata)
+        )
 
 
 # ============================================================
@@ -209,129 +345,90 @@ def aylik_macd_kaydet(sinyal_tipi, symbol, ay):
 # ============================================================
 
 def telegram_gonder(mesaj):
+
     url = (
-        f"https://api.telegram.org/bot"
-        f"{TELEGRAM_TOKEN}/sendMessage"
+        "https://api.telegram.org/"
+        f"bot{TELEGRAM_TOKEN}/sendMessage"
     )
 
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": mesaj
-    }
+    try:
 
-    for deneme in range(MAX_RETRIES):
-        try:
-            response = requests.post(
-                url,
-                data=payload,
-                timeout=20
-            )
+        response = requests.post(
+            url,
+            data={
+                "chat_id": CHAT_ID,
+                "text": mesaj
+            },
+            timeout=20
+        )
 
-            if response.status_code == 200:
-                return True
+        print(
+            "Telegram:",
+            response.status_code
+        )
 
-            print(
-                "Telegram hata:",
-                response.status_code,
-                response.text
-            )
+        return response.ok
 
-        except Exception as e:
-            print(
-                f"Telegram gönderim hatası "
-                f"({deneme + 1}/{MAX_RETRIES}):",
-                e
-            )
+    except Exception as hata:
 
-        time.sleep(2)
+        print(
+            "Telegram HATA:",
+            type(hata).__name__,
+            str(hata)
+        )
 
-    return False
-
-
-# ============================================================
-# SAYISAL VERİ TEMİZLEME
-# ============================================================
-
-def numeric_temizle(df, kolonlar):
-    """
-    Borsapy / TradingView'den gelen object, pd.NA,
-    string veya bozuk değerleri numeric hale getirir.
-    """
-
-    df = df.copy()
-
-    for kolon in kolonlar:
-        if kolon in df.columns:
-            df[kolon] = pd.to_numeric(
-                df[kolon],
-                errors="coerce"
-            )
-
-    return df
-
-
-# ============================================================
-# VERİ GEÇERLİ Mİ?
-# ============================================================
-
-def veri_gecerli_mi(df, kolonlar, minimum):
-    if df is None or df.empty:
         return False
 
-    for kolon in kolonlar:
-        if kolon not in df.columns:
-            return False
-
-    df = numeric_temizle(
-        df,
-        kolonlar
-    )
-
-    df = df.dropna(
-        subset=kolonlar
-    )
-
-    return len(df) >= minimum
-
 
 # ============================================================
-# PİYASA AÇIK MI
+# PİYASA
 # ============================================================
 
 def piyasa_acik_mi():
-    simdi = datetime.now(ISTANBUL)
 
-    if simdi.weekday() >= 5:
+    now = datetime.now(
+        ISTANBUL
+    )
+
+    if now.weekday() >= 5:
         return False
 
-    dakika = simdi.hour * 60 + simdi.minute
+    dakika = (
+        now.hour * 60
+        +
+        now.minute
+    )
 
-    acilis = 9 * 60 + 40
-    kapanis = 18 * 60 + 10
-
-    return acilis <= dakika <= kapanis
+    return (
+        9 * 60 + 40
+        <= dakika
+        <= 18 * 60 + 10
+    )
 
 
 # ============================================================
-# BIST100
+# BIST 100
 # ============================================================
 
 def bist100_listesi():
+
     try:
+
         index = bp.Index("XU100")
 
-        semboller = index.component_symbols
-
-        if not semboller:
-            return set()
-
         return {
-            str(x).upper().replace(".IS", "")
-            for x in semboller
+            str(hisse).upper()
+            for hisse in index.component_symbols
         }
 
-    except Exception as e:
-        print("BIST100 alınamadı:", e)
+    except Exception as hata:
+
+        print(
+            "BIST 100 HATA:",
+            type(hata).__name__,
+            str(hata)
+        )
+
         return set()
 
 
@@ -339,389 +436,33 @@ def bist100_listesi():
 # RSI
 # ============================================================
 
-def rsi_hesapla(close, period=14):
-    close = pd.to_numeric(
-        close,
-        errors="coerce"
-    )
+def rsi_hesapla(close):
 
     delta = close.diff()
 
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-
-    avg_gain = gain.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    avg_loss = loss.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    avg_loss = avg_loss.replace(
-        0,
-        float("nan")
-    )
-
-    rs = avg_gain / avg_loss
-
-    rsi = 100 - (
-        100 / (1 + rs)
-    )
-
-    return pd.to_numeric(
-        rsi,
-        errors="coerce"
-    )
-
-
-# ============================================================
-# ADX
-# ============================================================
-
-def adx_hesapla(df, period=14):
-    high = pd.to_numeric(
-        df["High"],
-        errors="coerce"
-    )
-
-    low = pd.to_numeric(
-        df["Low"],
-        errors="coerce"
-    )
-
-    close = pd.to_numeric(
-        df["Close"],
-        errors="coerce"
-    )
-
-    prev_close = close.shift(1)
-
-    tr1 = high - low
-    tr2 = (high - prev_close).abs()
-    tr3 = (low - prev_close).abs()
-
-    tr = pd.concat(
-        [tr1, tr2, tr3],
-        axis=1
-    ).max(axis=1)
-
-    up_move = high.diff()
-    down_move = -low.diff()
-
-    plus_dm = pd.Series(
-        0.0,
-        index=df.index
-    )
-
-    minus_dm = pd.Series(
-        0.0,
-        index=df.index
-    )
-
-    plus_mask = (
-        (up_move > down_move) &
-        (up_move > 0)
-    )
-
-    minus_mask = (
-        (down_move > up_move) &
-        (down_move > 0)
-    )
-
-    plus_dm.loc[plus_mask] = up_move.loc[plus_mask]
-    minus_dm.loc[minus_mask] = down_move.loc[minus_mask]
-
-    atr = tr.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    atr_safe = atr.replace(
-        0,
-        float("nan")
-    )
-
-    plus_di = (
-        100 *
-        plus_dm.ewm(
-            alpha=1 / period,
-            adjust=False
-        ).mean() /
-        atr_safe
-    )
-
-    minus_di = (
-        100 *
-        minus_dm.ewm(
-            alpha=1 / period,
-            adjust=False
-        ).mean() /
-        atr_safe
-    )
-
-    di_sum = (
-        plus_di + minus_di
-    ).replace(
-        0,
-        float("nan")
-    )
-
-    dx = (
-        100 *
-        (plus_di - minus_di).abs() /
-        di_sum
-    )
-
-    adx = dx.ewm(
-        alpha=1 / period,
-        adjust=False
-    ).mean()
-
-    return pd.to_numeric(
-        adx,
-        errors="coerce"
-    )
-
-
-def adx_gosterge(adx):
-    if pd.isna(adx):
-        return "⚪"
-
-    if adx >= 25:
-        return "🟢"
-
-    return "⚪"
-
-
-# ============================================================
-# GÜNLÜK VERİ
-# ============================================================
-
-def veri_al(symbol):
-
-    for deneme in range(MAX_RETRIES):
-
-        try:
-
-            ticker = bp.Ticker(symbol)
-
-            df = ticker.history(
-                period="6mo",
-                interval="1d"
-            )
-
-            if df is None or df.empty:
-                raise ValueError(
-                    "Boş veri"
-                )
-
-            df = df.copy()
-
-            gerekli = [
-                "Open",
-                "High",
-                "Low",
-                "Close",
-                "Volume"
-            ]
-
-            df = numeric_temizle(
-                df,
-                gerekli
-            )
-
-            df = df.dropna(
-                subset=gerekli
-            )
-
-            if len(df) >= 60:
-                return df
-
-            raise ValueError(
-                f"Yetersiz veri: {len(df)}"
-            )
-
-        except Exception as e:
-
-            print(
-                f"{symbol} günlük veri hatası "
-                f"({deneme + 1}/{MAX_RETRIES}): {e}"
-            )
-
-            if deneme < MAX_RETRIES - 1:
-                time.sleep(1)
-
-    return None
-
-
-# ============================================================
-# FIBONACCI
-# ============================================================
-
-def fibonacci_hesapla(df, lookback=100):
-
-    if len(df) < lookback:
-        return None
-
-    fib_df = df.tail(
-        lookback
-    ).copy()
-
-    fib_df["High"] = pd.to_numeric(
-        fib_df["High"],
-        errors="coerce"
-    )
-
-    fib_df["Low"] = pd.to_numeric(
-        fib_df["Low"],
-        errors="coerce"
-    )
-
-    fib_df = fib_df.dropna(
-        subset=["High", "Low"]
-    )
-
-    if len(fib_df) < lookback:
-        return None
-
-    try:
-        fib_high = float(
-            fib_df["High"].max()
-        )
-
-        fib_low = float(
-            fib_df["Low"].min()
-        )
-
-    except Exception:
-        return None
-
-    if pd.isna(fib_high) or pd.isna(fib_low):
-        return None
-
-    fib_range = fib_high - fib_low
-
-    if fib_range <= 0:
-        return None
-
-    high_values = fib_df["High"].tolist()
-    low_values = fib_df["Low"].tolist()
-
-    high_offset = None
-    low_offset = None
-
-    for i in range(
-        len(high_values) - 1,
-        -1,
-        -1
-    ):
-
-        try:
-            if float(high_values[i]) == fib_high:
-                high_offset = (
-                    len(high_values) - 1 - i
-                )
-                break
-        except Exception:
-            continue
-
-    for i in range(
-        len(low_values) - 1,
-        -1,
-        -1
-    ):
-
-        try:
-            if float(low_values[i]) == fib_low:
-                low_offset = (
-                    len(low_values) - 1 - i
-                )
-                break
-        except Exception:
-            continue
-
-    if high_offset is None or low_offset is None:
-        return None
-
-    revfibs = low_offset > high_offset
-
-    oranlar = [
-        0.000,
-        0.236,
-        0.382,
-        0.500,
-        0.618,
-        0.786,
-        1.000
-    ]
-
-    seviyeler = {}
-
-    if revfibs:
-
-        for oran in oranlar:
-
-            seviyeler[oran] = (
-                fib_low +
-                fib_range * oran
-            )
-
-    else:
-
-        for oran in oranlar:
-
-            seviyeler[oran] = (
-                fib_high -
-                fib_range * oran
-            )
-
-    return {
-        "high": fib_high,
-        "low": fib_low,
-        "levels": seviyeler
-    }
-
-
-# ============================================================
-# PINE RSI
-# ============================================================
-
-def pine_rsi(series, length):
-
-    series = pd.to_numeric(
-        series,
-        errors="coerce"
-    )
-
-    delta = series.diff()
-
-    gain = delta.clip(
+    kazanc = delta.clip(
         lower=0
     )
 
-    loss = -delta.clip(
+    kayip = -delta.clip(
         upper=0
     )
 
-    avg_gain = gain.ewm(
-        alpha=1 / length,
+    ort_kazanc = kazanc.ewm(
+        alpha=1 / RSI_PERIOD,
         adjust=False
     ).mean()
 
-    avg_loss = loss.ewm(
-        alpha=1 / length,
+    ort_kayip = kayip.ewm(
+        alpha=1 / RSI_PERIOD,
         adjust=False
     ).mean()
 
-    avg_loss = avg_loss.replace(
-        0,
-        float("nan")
+    rs = (
+        ort_kazanc
+        /
+        ort_kayip
     )
-
-    rs = avg_gain / avg_loss
 
     return 100 - (
         100 / (1 + rs)
@@ -729,1318 +470,1357 @@ def pine_rsi(series, length):
 
 
 # ============================================================
-# QQE MOD
+# ADX
 # ============================================================
 
-def calculate_qqe(
-    source,
-    rsi_length,
-    smoothing,
-    qqe_factor
-):
+def adx_hesapla(df):
 
-    wilders_length = (
-        rsi_length * 2 - 1
+    high = df["High"]
+    low = df["Low"]
+    close = df["Close"]
+
+    onceki_close = close.shift(1)
+
+    yukari_hareket = high.diff()
+    asagi_hareket = -low.diff()
+
+    plus_dm = yukari_hareket.where(
+        (
+            yukari_hareket
+            >
+            asagi_hareket
+        )
+        &
+        (
+            yukari_hareket > 0
+        ),
+        0.0
     )
 
-    rsi = pine_rsi(
-        source,
-        rsi_length
+    minus_dm = asagi_hareket.where(
+        (
+            asagi_hareket
+            >
+            yukari_hareket
+        )
+        &
+        (
+            asagi_hareket > 0
+        ),
+        0.0
     )
 
-    smoothed_rsi = rsi.ewm(
-        span=smoothing,
-        adjust=False
-    ).mean()
+    tr1 = high - low
 
-    atr_rsi = (
-        smoothed_rsi.shift(1) -
-        smoothed_rsi
+    tr2 = (
+        high
+        -
+        onceki_close
     ).abs()
 
-    smoothed_atr_rsi = atr_rsi.ewm(
-        span=wilders_length,
+    tr3 = (
+        low
+        -
+        onceki_close
+    ).abs()
+
+    true_range = (
+        tr1
+        .combine(tr2, max)
+        .combine(tr3, max)
+    )
+
+    atr = true_range.ewm(
+        alpha=1 / ADX_PERIOD,
         adjust=False
     ).mean()
 
-    dynamic_atr_rsi = (
-        smoothed_atr_rsi *
-        qqe_factor
+    plus_di = (
+        100
+        *
+        plus_dm.ewm(
+            alpha=1 / ADX_PERIOD,
+            adjust=False
+        ).mean()
+        /
+        atr
     )
 
-    long_band = pd.Series(
-        index=source.index,
-        dtype=float
+    minus_di = (
+        100
+        *
+        minus_dm.ewm(
+            alpha=1 / ADX_PERIOD,
+            adjust=False
+        ).mean()
+        /
+        atr
     )
 
-    short_band = pd.Series(
-        index=source.index,
-        dtype=float
+    di_toplam = (
+        plus_di
+        +
+        minus_di
     )
 
-    trend_direction = pd.Series(
-        index=source.index,
-        dtype=float
+    dx = (
+        100
+        *
+        (
+            plus_di
+            -
+            minus_di
+        ).abs()
+        /
+        di_toplam
     )
 
-    trend_line = pd.Series(
-        index=source.index,
-        dtype=float
-    )
-
-    for i in range(len(source)):
-
-        current_rsi = smoothed_rsi.iloc[i]
-        current_atr = dynamic_atr_rsi.iloc[i]
-
-        if pd.isna(current_rsi):
-            continue
-
-        if pd.isna(current_atr):
-            current_atr = 0.0
-
-        if i == 0:
-
-            long_band.iloc[i] = (
-                current_rsi -
-                current_atr
-            )
-
-            short_band.iloc[i] = (
-                current_rsi +
-                current_atr
-            )
-
-            trend_direction.iloc[i] = 1
-
-            trend_line.iloc[i] = (
-                long_band.iloc[i]
-            )
-
-            continue
-
-        prev_long = long_band.iloc[i - 1]
-        prev_short = short_band.iloc[i - 1]
-        prev_rsi = smoothed_rsi.iloc[i - 1]
-
-        if pd.isna(prev_long):
-            prev_long = (
-                current_rsi -
-                current_atr
-            )
-
-        if pd.isna(prev_short):
-            prev_short = (
-                current_rsi +
-                current_atr
-            )
-
-        if pd.isna(prev_rsi):
-            prev_rsi = current_rsi
-
-        new_long = (
-            current_rsi -
-            current_atr
-        )
-
-        new_short = (
-            current_rsi +
-            current_atr
-        )
-
-        if (
-            current_rsi > prev_long and
-            prev_rsi > prev_long
-        ):
-
-            long_band.iloc[i] = max(
-                prev_long,
-                new_long
-            )
-
-        else:
-
-            long_band.iloc[i] = new_long
-
-        if (
-            current_rsi < prev_short and
-            prev_rsi < prev_short
-        ):
-
-            short_band.iloc[i] = min(
-                prev_short,
-                new_short
-            )
-
-        else:
-
-            short_band.iloc[i] = new_short
-
-        direction = trend_direction.iloc[i - 1]
-
-        if pd.isna(direction):
-            direction = 1
-
-        cross_up = (
-            current_rsi > prev_short and
-            prev_rsi <= prev_short
-        )
-
-        cross_down = (
-            current_rsi < prev_long and
-            prev_rsi >= prev_long
-        )
-
-        if cross_up:
-            direction = 1
-
-        elif cross_down:
-            direction = -1
-
-        trend_direction.iloc[i] = direction
-
-        if direction == 1:
-
-            trend_line.iloc[i] = (
-                long_band.iloc[i]
-            )
-
-        else:
-
-            trend_line.iloc[i] = (
-                short_band.iloc[i]
-            )
-
-    return (
-        rsi,
-        smoothed_rsi,
-        trend_line
-    )
-
-
-def qqe_hesapla(df):
-
-    source = pd.to_numeric(
-        df["Close"],
-        errors="coerce"
-    )
-
-    (
-        primary_rsi_raw,
-        primary_rsi,
-        primary_trend_line
-    ) = calculate_qqe(
-        source,
-        6,
-        5,
-        3.0
-    )
-
-    (
-        secondary_rsi_raw,
-        secondary_rsi,
-        secondary_trend_line
-    ) = calculate_qqe(
-        source,
-        6,
-        5,
-        1.61
-    )
-
-    bollinger_source = (
-        primary_trend_line - 50
-    )
-
-    basis = bollinger_source.rolling(
-        50,
-        min_periods=20
+    return dx.ewm(
+        alpha=1 / ADX_PERIOD,
+        adjust=False
     ).mean()
 
-    deviation = (
-        bollinger_source.rolling(
-            50,
-            min_periods=20
-        ).std() * 0.35
+
+def adx_gosterge(adx):
+
+    if adx >= 25:
+        return "🟢"
+
+    if adx >= 20:
+        return "🟡"
+
+    return "🔴"
+
+
+# ============================================================
+# VERİ AL
+# ============================================================
+
+def veri_al(
+    symbol,
+    period="6mo"
+):
+
+    for deneme in range(
+        1,
+        MAX_RETRIES + 1
+    ):
+
+        try:
+
+            ticker = bp.Ticker(
+                symbol
+            )
+
+            df = ticker.history(
+                period=period
+            )
+
+            if df is None:
+                return None
+
+            return df.copy()
+
+        except Exception as hata:
+
+            hata_metni = str(hata)
+
+            if (
+                "429" in hata_metni
+                or
+                "Too Many Requests"
+                in hata_metni
+            ):
+
+                bekleme = 2 ** deneme
+
+                print(
+                    f"{symbol}: 429 - "
+                    f"{bekleme} sn bekleniyor"
+                )
+
+                time.sleep(
+                    bekleme
+                )
+
+                continue
+
+            print(
+                symbol,
+                "VERİ HATASI:",
+                type(hata).__name__,
+                str(hata)
+            )
+
+            return None
+
+    return None
+
+
+# =====================================================
+# FIBONACCI
+# =====================================================
+
+def fibonacci_seviyeleri(df):
+
+    if len(df) < FIB_LOOKBACK:
+        return None
+
+    son_df = df.tail(
+        FIB_LOOKBACK
+    ).copy()
+
+    high_series = son_df["High"]
+    low_series = son_df["Low"]
+
+    fib_high = float(
+        high_series.max()
     )
 
-    bollinger_upper = (
-        basis + deviation
+    fib_low = float(
+        low_series.min()
     )
 
-    bollinger_lower = (
-        basis - deviation
+    if fib_high <= fib_low:
+        return None
+
+    high_index = (
+        high_series.idxmax()
     )
 
-    primary_renk = pd.Series(
-        "GRI",
-        index=df.index,
-        dtype=object
+    low_index = (
+        low_series.idxmin()
     )
 
-    mavi_mask = (
-        (primary_rsi - 50) >
-        bollinger_upper
+    yukselis = (
+        low_index < high_index
     )
 
-    kirmizi_mask = (
-        (primary_rsi - 50) <
-        bollinger_lower
+    aralik = (
+        fib_high - fib_low
     )
 
-    primary_renk.loc[mavi_mask] = "MAVI"
-    primary_renk.loc[kirmizi_mask] = "KIRMIZI"
+    oranlar = [
+        ("0.000", 0.000),
+        ("0.236", 0.236),
+        ("0.382", 0.382),
+        ("0.500", 0.500),
+        ("0.618", 0.618),
+        ("0.786", 0.786),
+        ("1.000", 1.000)
+    ]
 
-    secondary_hist = (
-        secondary_rsi - 50
-    )
+    seviyeler = {}
 
-    yeni_mavi = (
-        (secondary_hist > 3) &
-        (primary_rsi - 50 > bollinger_upper)
-    )
+    for oran, katsayi in oranlar:
 
-    yeni_kirmizi = (
-        (secondary_hist < -3) &
-        (primary_rsi - 50 < bollinger_lower)
-    )
+        if yukselis:
+
+            seviye = (
+                fib_low
+                +
+                aralik * katsayi
+            )
+
+        else:
+
+            seviye = (
+                fib_high
+                -
+                aralik * katsayi
+            )
+
+        seviyeler[oran] = float(
+            seviye
+        )
 
     return {
-        "primary_rsi": primary_rsi,
-        "secondary_rsi": secondary_rsi,
-        "primary_trend_line": primary_trend_line,
-        "bollinger_upper": bollinger_upper,
-        "bollinger_lower": bollinger_lower,
-        "qqe_mavi": mavi_mask,
-        "qqe_kirmizi": kirmizi_mask,
-        "qqe_yeni_mavi": yeni_mavi,
-        "qqe_yeni_kirmizi": yeni_kirmizi,
-        "qqe_renk": primary_renk
+        "high": fib_high,
+        "low": fib_low,
+        "yon": (
+            "yukselis"
+            if yukselis
+            else "dus"
+        ),
+        "seviyeler": seviyeler
     }
 
 
-def qqe_renk_goster(renk):
+def fib_analiz(df, fiyat):
 
-    if renk == "MAVI":
-        return "🔵 QQE: MAVİ"
+    fib = fibonacci_seviyeleri(
+        df
+    )
 
-    if renk == "KIRMIZI":
-        return "🔴 QQE: KIRMIZI"
+    if fib is None:
+        return None
 
-    return "⚪ QQE: GRİ"
+    seviyeler = fib[
+        "seviyeler"
+    ]
+
+    alt = []
+
+    for oran, seviye in seviyeler.items():
+
+        if seviye < fiyat:
+
+            alt.append(
+                (
+                    seviye,
+                    oran
+                )
+            )
+
+    alt.sort(
+        key=lambda x: x[0],
+        reverse=True
+    )
+
+    stop_bilgi = (
+        alt[0]
+        if alt
+        else None
+    )
+
+    ust = []
+
+    for oran, seviye in seviyeler.items():
+
+        if seviye > fiyat:
+
+            kar_yuzdesi = (
+                (
+                    seviye
+                    -
+                    fiyat
+                )
+                /
+                fiyat
+            ) * 100
+
+            ust.append(
+                (
+                    seviye,
+                    oran,
+                    kar_yuzdesi
+                )
+            )
+
+    ust.sort(
+        key=lambda x: x[0]
+    )
+
+    yakin_ust = (
+        ust[0]
+        if ust
+        else None
+    )
+
+    fib100 = seviyeler[
+        "1.000"
+    ]
+
+    tepe_potansiyel = (
+        (
+            fib100
+            -
+            fiyat
+        )
+        /
+        fiyat
+    ) * 100
+
+    fiyat_seviyesi = None
+    en_yakin_mesafe = None
+
+    for oran, seviye in seviyeler.items():
+
+        mesafe = abs(
+            fiyat - seviye
+        )
+
+        if (
+            en_yakin_mesafe is None
+            or
+            mesafe < en_yakin_mesafe
+        ):
+
+            en_yakin_mesafe = mesafe
+            fiyat_seviyesi = oran
+
+    return {
+        "fib": fib,
+        "seviyeler": seviyeler,
+        "stop": stop_bilgi,
+        "yakin_ust": yakin_ust,
+        "tepe_potansiyel": tepe_potansiyel,
+        "fiyat_seviyesi": fiyat_seviyesi
+    }
+
+
+# ============================================================
+# SİNYAL GÜCÜ
+# ============================================================
+
+def sinyal_gucu_hesapla(
+    rsi,
+    adx,
+    ema_mesafe,
+    haftalik_degisim,
+    hacim,
+    ortalama_hacim
+):
+
+    puan = 0
+
+    if rsi >= 70:
+        puan += 20
+
+    elif rsi >= 60:
+        puan += 17
+
+    elif rsi >= 55:
+        puan += 14
+
+    elif rsi > 50:
+        puan += 10
+
+    if adx >= 30:
+        puan += 20
+
+    elif adx >= 25:
+        puan += 17
+
+    elif adx >= 20:
+        puan += 14
+
+    elif adx >= 15:
+        puan += 9
+
+    if ema_mesafe >= 7:
+        puan += 20
+
+    elif ema_mesafe >= 5:
+        puan += 17
+
+    elif ema_mesafe >= 3:
+        puan += 14
+
+    else:
+        puan += 8
+
+    if haftalik_degisim >= 10:
+        puan += 20
+
+    elif haftalik_degisim >= 7:
+        puan += 17
+
+    elif haftalik_degisim >= 4:
+        puan += 14
+
+    elif haftalik_degisim > 0:
+        puan += 9
+
+    if ortalama_hacim > 0:
+
+        hacim_orani = (
+            hacim
+            /
+            ortalama_hacim
+        )
+
+        if hacim_orani >= 2:
+            puan += 20
+
+        elif hacim_orani >= 1.5:
+            puan += 17
+
+        elif hacim_orani >= 1.0:
+            puan += 14
+
+        else:
+            puan += 8
+
+    else:
+
+        puan += 8
+
+    return min(
+        100,
+        max(0, puan)
+    )
+
+
+# ============================================================
+# ORTAK HİSSE DETAYLARI
+#
+# Aylık MACD sinyali günlük sinyal şartlarına bağlı değildir.
+# Fakat Telegram mesajında aynı bilgiler gösterilir.
+# ============================================================
+
+def hisse_detaylarini_hazirla(
+    symbol,
+    df
+):
+
+    try:
+
+        gerekli = {
+            "High",
+            "Low",
+            "Close",
+            "Volume"
+        }
+
+        if not gerekli.issubset(
+            df.columns
+        ):
+            return None
+
+        if len(df) < 120:
+            return None
+
+        df = df.copy()
+
+        df["EMA14"] = (
+            df["Close"].ewm(
+                span=EMA_PERIOD,
+                adjust=False
+            ).mean()
+        )
+
+        df["RSI14"] = (
+            rsi_hesapla(
+                df["Close"]
+            )
+        )
+
+        df["ADX14"] = (
+            adx_hesapla(
+                df
+            )
+        )
+
+        df["BASE"] = (
+            df["High"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .max()
+            +
+            df["Low"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .min()
+        ) / 2
+
+        df["AVG_VOLUME_20"] = (
+            df["Volume"]
+            .rolling(20)
+            .mean()
+        )
+
+        onceki = df.iloc[-2]
+        son = df.iloc[-1]
+        hafta_once = df.iloc[-6]
+
+        bir_haftalik_degisim = (
+            (
+                son["Close"]
+                /
+                hafta_once["Close"]
+            )
+            -
+            1
+        ) * 100
+
+        gunluk_degisim = (
+            (
+                son["Close"]
+                /
+                onceki["Close"]
+            )
+            -
+            1
+        ) * 100
+
+        try:
+            hacim = float(
+                son["Volume"]
+            )
+        except Exception:
+            hacim = 0.0
+
+        try:
+            ortalama_hacim_20 = float(
+                son["AVG_VOLUME_20"]
+            )
+        except Exception:
+            ortalama_hacim_20 = 0.0
+
+        try:
+            adx = float(
+                son["ADX14"]
+            )
+        except Exception:
+            adx = 0.0
+
+        fiyat = float(
+            son["Close"]
+        )
+
+        ema14 = float(
+            son["EMA14"]
+        )
+
+        rsi14 = float(
+            son["RSI14"]
+        )
+
+        fib_sonuc = fib_analiz(
+            df,
+            fiyat
+        )
+
+        if fib_sonuc is None:
+            return None
+
+        stop_bilgi = (
+            fib_sonuc["stop"]
+        )
+
+        if stop_bilgi is None:
+            return None
+
+        sonuc = {
+
+            "symbol": symbol,
+
+            "price": fiyat,
+
+            "daily_change":
+                float(
+                    gunluk_degisim
+                ),
+
+            "weekly_change":
+                float(
+                    bir_haftalik_degisim
+                ),
+
+            "volume":
+                hacim,
+
+            "avg_volume_20":
+                ortalama_hacim_20,
+
+            "ema14":
+                ema14,
+
+            "ema_mesafe": (
+                (
+                    fiyat
+                    /
+                    ema14
+                )
+                -
+                1
+            ) * 100,
+
+            "rsi14":
+                rsi14,
+
+            "adx14":
+                adx,
+
+            "stop":
+                stop_bilgi[0],
+
+            "stop_fib":
+                stop_bilgi[1],
+
+            "fib_levels":
+                fib_sonuc[
+                    "seviyeler"
+                ],
+
+            "fib_low":
+                fib_sonuc[
+                    "fib"
+                ]["low"],
+
+            "fib_high":
+                fib_sonuc[
+                    "fib"
+                ]["high"],
+
+            "fib_yon":
+                fib_sonuc[
+                    "fib"
+                ]["yon"],
+
+            "fiyat_fib":
+                fib_sonuc[
+                    "fiyat_seviyesi"
+                ],
+
+            "tepe_potansiyel":
+                fib_sonuc[
+                    "tepe_potansiyel"
+                ],
+
+            "yakin_ust":
+                fib_sonuc[
+                    "yakin_ust"
+                ]
+        }
+
+        sonuc["sinyal_gucu"] = (
+            sinyal_gucu_hesapla(
+                rsi14,
+                adx,
+                sonuc["ema_mesafe"],
+                bir_haftalik_degisim,
+                hacim,
+                ortalama_hacim_20
+            )
+        )
+
+        return sonuc
+
+    except Exception as hata:
+
+        print(
+            symbol,
+            "DETAY HATASI:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return None
 
 
 # ============================================================
 # GÜNLÜK ANALİZ
 # ============================================================
 
-def analiz_et(symbol, sadece_sinyal=False):
+def analiz_et(symbol):
 
     try:
 
-        df = veri_al(symbol)
+        print(
+            "Taranıyor:",
+            symbol
+        )
 
-        if df is None or len(df) < 60:
+        df = veri_al(
+            symbol,
+            "6mo"
+        )
+
+        if df is None:
             return None
 
-        df = numeric_temizle(
-            df,
-            [
-                "Open",
-                "High",
-                "Low",
-                "Close",
-                "Volume"
-            ]
-        )
+        gerekli = {
+            "High",
+            "Low",
+            "Close",
+            "Volume"
+        }
 
-        df = df.dropna(
-            subset=[
-                "Open",
-                "High",
-                "Low",
-                "Close",
-                "Volume"
-            ]
-        )
-
-        if len(df) < 60:
-            return None
-
-        close = df["Close"]
-
-        ema = close.ewm(
-            span=EMA_PERIOD,
-            adjust=False
-        ).mean()
-
-        rsi = rsi_hesapla(
-            close,
-            RSI_PERIOD
-        )
-
-        adx = adx_hesapla(
-            df,
-            ADX_PERIOD
-        )
-
-        base = (
-            df["High"].rolling(
-                BASE_PERIOD
-            ).max()
-            +
-            df["Low"].rolling(
-                BASE_PERIOD
-            ).min()
-        ) / 2
-
-        qqe = qqe_hesapla(df)
-
-        # ----------------------------------------------------
-        # SON DEĞERLER
-        # ----------------------------------------------------
-
-        values = [
-            close.iloc[-1],
-            close.iloc[-2],
-            ema.iloc[-1],
-            ema.iloc[-2],
-            rsi.iloc[-1],
-            rsi.iloc[-2],
-            base.iloc[-1],
-            base.iloc[-2],
-            adx.iloc[-1]
-        ]
-
-        if any(
-            pd.isna(x)
-            for x in values
+        if not gerekli.issubset(
+            df.columns
         ):
             return None
 
-        son_close = float(
-            close.iloc[-1]
+        if len(df) < 120:
+            return None
+
+        df = df.copy()
+
+        df["EMA14"] = (
+            df["Close"].ewm(
+                span=EMA_PERIOD,
+                adjust=False
+            ).mean()
         )
 
-        onceki_close = float(
-            close.iloc[-2]
+        df["RSI14"] = (
+            rsi_hesapla(
+                df["Close"]
+            )
         )
 
-        son_ema = float(
-            ema.iloc[-1]
+        df["ADX14"] = (
+            adx_hesapla(
+                df
+            )
         )
 
-        onceki_ema = float(
-            ema.iloc[-2]
+        df["BASE"] = (
+            df["High"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .max()
+            +
+            df["Low"]
+            .rolling(
+                BASE_PERIOD
+            )
+            .min()
+        ) / 2
+
+        df["AVG_VOLUME_20"] = (
+            df["Volume"]
+            .rolling(20)
+            .mean()
         )
 
-        son_rsi = float(
-            rsi.iloc[-1]
+        onceki = df.iloc[-2]
+        son = df.iloc[-1]
+        hafta_once = df.iloc[-6]
+
+        ichimoku_sinyal = (
+            onceki["BASE"]
+            >=
+            onceki["Close"]
+            and
+            son["BASE"]
+            <
+            son["Close"]
         )
 
-        onceki_rsi = float(
-            rsi.iloc[-2]
-        )
-
-        son_base = float(
-            base.iloc[-1]
-        )
-
-        onceki_base = float(
-            base.iloc[-2]
-        )
-
-        son_adx = float(
-            adx.iloc[-1]
-        )
-
-        # ====================================================
-        # GÜNLÜK ANA KRİTERLER
-        # ====================================================
-
-        base_yukari_kesti = (
-            onceki_base >= onceki_close and
-            son_base < son_close
-        )
-
-        ema_mesafe = (
-            son_close >=
-            son_ema *
+        fiyat_ema_sinyal = (
+            son["Close"]
+            >=
+            son["EMA14"]
+            *
             (1 + EMA_MIN_DISTANCE)
         )
 
         ema_yukseliyor = (
-            son_ema > onceki_ema
+            son["EMA14"]
+            >
+            onceki["EMA14"]
         )
 
-        rsi_yukari_kesti = (
-            onceki_rsi <= 50 and
-            son_rsi > 50
+        rsi_50_cross = (
+            onceki["RSI14"]
+            <= 50
+            and
+            son["RSI14"]
+            > 50
         )
 
         rsi_yukseliyor = (
-            son_rsi > onceki_rsi
+            son["RSI14"]
+            >
+            onceki["RSI14"]
         )
 
-        # ----------------------------------------------------
-        # GÜNLÜK FİLTRE
-        # ----------------------------------------------------
-
-        if not sadece_sinyal:
-
-            if not (
-                base_yukari_kesti and
-                ema_mesafe and
-                ema_yukseliyor and
-                rsi_yukari_kesti and
-                rsi_yukseliyor
-            ):
-                return None
-
-        # ====================================================
-        # FIB
-        # ====================================================
-
-        fib = fibonacci_hesapla(
-            df,
-            FIB_LOOKBACK
-        )
-
-        if fib is None:
+        if not (
+            ichimoku_sinyal
+            and
+            fiyat_ema_sinyal
+            and
+            ema_yukseliyor
+            and
+            rsi_50_cross
+            and
+            rsi_yukseliyor
+        ):
             return None
 
-        seviyeler = fib["levels"]
-
-        # ====================================================
-        # STOP
-        # ====================================================
-
-        stop = None
-        stop_oran = None
-
-        alttaki = []
-
-        for oran, seviye in seviyeler.items():
-
-            if seviye < son_close:
-                alttaki.append(
-                    (oran, seviye)
-                )
-
-        if alttaki:
-
-            stop_oran, stop = max(
-                alttaki,
-                key=lambda x: x[1]
-            )
-
-        # ====================================================
-        # FİYAT FIB
-        # ====================================================
-
-        fiyat_fib_oran, fiyat_fib = min(
-            seviyeler.items(),
-            key=lambda x: abs(
-                x[1] - son_close
-            )
+        return hisse_detaylarini_hazirla(
+            symbol,
+            df
         )
 
-        # ====================================================
-        # TEPE
-        # ====================================================
-
-        tepe = seviyeler.get(
-            1.000
-        )
-
-        if tepe is not None:
-
-            tepe_potansiyel = (
-                (tepe / son_close) - 1
-            ) * 100
-
-        else:
-
-            tepe_potansiyel = 0
-
-        # ====================================================
-        # GÜNLÜK DEĞİŞİM
-        # ====================================================
-
-        if len(close) >= 2:
-
-            gunluk_yuzde = (
-                (son_close /
-                 float(close.iloc[-2])) - 1
-            ) * 100
-
-        else:
-
-            gunluk_yuzde = 0
-
-        # ====================================================
-        # HAFTALIK
-        # ====================================================
-
-        if len(close) >= 6:
-
-            haftalik_yuzde = (
-                (son_close /
-                 float(close.iloc[-6])) - 1
-            ) * 100
-
-        else:
-
-            haftalik_yuzde = 0
-
-        # ====================================================
-        # HACİM
-        # ====================================================
-
-        volume = pd.to_numeric(
-            df["Volume"],
-            errors="coerce"
-        )
-
-        ort_hacim = (
-            volume
-            .rolling(
-                20,
-                min_periods=1
-            )
-            .mean()
-            .iloc[-1]
-        )
-
-        hacim = volume.iloc[-1]
-
-        if pd.isna(hacim):
-            return None
-
-        hacim = float(hacim)
-
-        if pd.isna(ort_hacim):
-            ort_hacim = hacim
-        else:
-            ort_hacim = float(ort_hacim)
-
-        # ====================================================
-        # QQE
-        # ====================================================
-
-        qqe_renk = qqe[
-            "qqe_renk"
-        ].iloc[-1]
-
-        if pd.isna(qqe_renk):
-            qqe_renk = "GRI"
-
-        return {
-            "symbol": symbol,
-            "fiyat": son_close,
-
-            "gunluk_yuzde": gunluk_yuzde,
-            "haftalik_yuzde": haftalik_yuzde,
-
-            "ema": son_ema,
-
-            "ema_yuzde": (
-                (son_close / son_ema) - 1
-            ) * 100,
-
-            "rsi": son_rsi,
-            "adx": son_adx,
-
-            "fib": seviyeler,
-
-            "fiyat_fib_oran": fiyat_fib_oran,
-            "fiyat_fib": fiyat_fib,
-
-            "stop_oran": stop_oran,
-            "stop": stop,
-
-            "tepe": tepe,
-            "tepe_potansiyel": tepe_potansiyel,
-
-            "hacim": hacim,
-            "ort_hacim": ort_hacim,
-
-            "qqe_renk": qqe_renk
-        }
-
-    except Exception as e:
+    except Exception as hata:
 
         print(
-            f"{symbol} analiz hatası: {e}"
+            symbol,
+            "GÜNLÜK HATA:",
+            type(hata).__name__,
+            str(hata)
         )
 
         return None
 
 
 # ============================================================
-# YÜZDE MESAFE
+# AYLIK MACD
+#
+# Günlük veriler aylık mumlara dönüştürülür.
+#
+# MACD:
+#   EMA 12 - EMA 26
+#
+# Signal:
+#   MACD'nin EMA 9'u
+#
+# SİNYAL:
+#   Önceki aylık mum:
+#       MACD <= Signal
+#
+#   İçinde bulunduğumuz aylık mum:
+#       MACD > Signal
+#
+# Böylece ay sonunu beklemeden mevcut ay içinde
+# yukarı kesişim yakalanır.
 # ============================================================
 
-def yuzde_mesafe(seviye, fiyat):
+def aylik_macd_hesapla(df):
 
-    if fiyat == 0:
-        return 0
+    try:
 
-    return (
-        (seviye / fiyat) - 1
-    ) * 100
+        if df is None:
+            return None
+
+        if "Close" not in df.columns:
+            return None
+
+        if len(df) < 100:
+            return None
+
+        aylik = df.copy()
+
+        # Tarih index kontrolü
+        if not isinstance(
+            aylik.index,
+            pd.DatetimeIndex
+        ):
+
+            try:
+
+                aylik.index = pd.to_datetime(
+                    aylik.index
+                )
+
+            except Exception:
+
+                return None
+
+        aylik = aylik.sort_index()
+
+        # Günlük kapanışlardan aylık kapanış
+        aylik_close = (
+            aylik["Close"]
+            .resample("ME")
+            .last()
+            .dropna()
+        )
+
+        if len(aylik_close) < 35:
+            return None
+
+        macd_fast = (
+            aylik_close
+            .ewm(
+                span=MACD_FAST,
+                adjust=False
+            )
+            .mean()
+        )
+
+        macd_slow = (
+            aylik_close
+            .ewm(
+                span=MACD_SLOW,
+                adjust=False
+            )
+            .mean()
+        )
+
+        macd_level = (
+            macd_fast
+            -
+            macd_slow
+        )
+
+        signal = (
+            macd_level
+            .ewm(
+                span=MACD_SIGNAL,
+                adjust=False
+            )
+            .mean()
+        )
+
+        aylik_macd = pd.DataFrame({
+            "Close": aylik_close,
+            "MACD": macd_level,
+            "Signal": signal
+        })
+
+        if len(aylik_macd) < 2:
+            return None
+
+        onceki = aylik_macd.iloc[-2]
+        son = aylik_macd.iloc[-1]
+
+        # ====================================================
+        # ANA ŞART
+        # ====================================================
+
+        yukari_kesisim = (
+            onceki["MACD"]
+            <=
+            onceki["Signal"]
+            and
+            son["MACD"]
+            >
+            son["Signal"]
+        )
+
+        return {
+            "sinyal":
+                bool(yukari_kesisim),
+
+            "macd":
+                float(son["MACD"]),
+
+            "signal":
+                float(son["Signal"]),
+
+            "onceki_macd":
+                float(onceki["MACD"]),
+
+            "onceki_signal":
+                float(onceki["Signal"])
+        }
+
+    except Exception as hata:
+
+        print(
+            "Aylık MACD hesaplama HATA:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return None
+
+
+def aylik_macd_analiz_et(symbol):
+
+    try:
+
+        print(
+            "🔴 Aylık MACD taranıyor:",
+            symbol
+        )
+
+        # Aylık MACD için uzun geçmiş
+        df_uzun = veri_al(
+            symbol,
+            AYLIK_VERI_PERIYODU
+        )
+
+        if df_uzun is None:
+            return None
+
+        macd_sonuc = (
+            aylik_macd_hesapla(
+                df_uzun
+            )
+        )
+
+        if macd_sonuc is None:
+            return None
+
+        if not macd_sonuc["sinyal"]:
+            return None
+
+        # Telegram'da gösterilecek mevcut fiyat/FIB/ADX/
+        # RSI/EMA vb. bilgileri günlük veriden hazırla.
+        #
+        # Böylece aylık MACD mesajı da mevcut mesajla
+        # aynı formatı kullanır.
+
+        df_gunluk = veri_al(
+            symbol,
+            "6mo"
+        )
+
+        if df_gunluk is None:
+            return None
+
+        detay = hisse_detaylarini_hazirla(
+            symbol,
+            df_gunluk
+        )
+
+        if detay is None:
+            return None
+
+        detay["aylik_macd"] = (
+            macd_sonuc["macd"]
+        )
+
+        detay["aylik_signal"] = (
+            macd_sonuc["signal"]
+        )
+
+        detay["aylik_onceki_macd"] = (
+            macd_sonuc["onceki_macd"]
+        )
+
+        detay["aylik_onceki_signal"] = (
+            macd_sonuc["onceki_signal"]
+        )
+
+        return detay
+
+    except Exception as hata:
+
+        print(
+            symbol,
+            "AYLIK MACD HATA:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return None
 
 
 # ============================================================
 # FIB SATIRI
 # ============================================================
 
-def fib_satiri(oran, seviye, fiyat):
+def fib_satiri(
+    oran,
+    seviye,
+    fiyat,
+    fiyat_fib
+):
 
-    yuzde = yuzde_mesafe(
-        seviye,
-        fiyat
-    )
+    if oran == fiyat_fib:
 
-    if seviye <= fiyat:
-        ikon = "🟢 ➜"
-    else:
-        ikon = "   "
+        potansiyel = (
+            (
+                seviye
+                -
+                fiyat
+            )
+            /
+            fiyat
+        ) * 100
+
+        return (
+            f"🟢 ➜ {oran} → "
+            f"{seviye:.2f} TL"
+            f"  |  "
+            f"{potansiyel:+.2f}%"
+        )
+
+    if seviye > fiyat:
+
+        potansiyel = (
+            (
+                seviye
+                -
+                fiyat
+            )
+            /
+            fiyat
+        ) * 100
+
+        return (
+            f"{oran} → "
+            f"{seviye:.2f} TL"
+            f"  |  "
+            f"{potansiyel:+.2f}%"
+        )
 
     return (
-        f"{ikon} {oran:.3f} → "
-        f"{seviye:.2f} TL  |  "
-        f"{yuzde:+.2f}%"
+        f"{oran} → "
+        f"{seviye:.2f} TL"
     )
 
 
 # ============================================================
-# TELEGRAM MESAJ
+# TELEGRAM MESAJI
 # ============================================================
 
-def mesaj_olustur(
+def mesaj_hazirla(
     sonuc,
     baslik
 ):
 
     symbol = sonuc["symbol"]
-    fiyat = sonuc["fiyat"]
-    adx = sonuc["adx"]
 
-    adx_ikon = adx_gosterge(
-        adx
+    adx_deger = sonuc["adx14"]
+
+    adx_isaret = (
+        adx_gosterge(
+            adx_deger
+        )
     )
 
-    qqe_durum = qqe_renk_goster(
-        sonuc["qqe_renk"]
-    )
+    fiyat = sonuc["price"]
 
-    pazar = (
-        "Ana Pazar"
-        if symbol in ANA_PAZAR
-        else "BIST100"
-    )
+    stop = sonuc["stop"]
+
+    stop_fib = sonuc["stop_fib"]
+
+    fibler = sonuc["fib_levels"]
+
+    fiyat_fib = sonuc["fiyat_fib"]
 
     mesaj = (
-        f"{baslik} : {symbol:<20} "
-        f"ADX {adx_ikon} {adx:.1f}\n\n"
 
-        f"💰 Giriş: {fiyat:.2f} TL"
-        f"{' ' * 18}"
-        f"{qqe_durum}\n"
+        f"{baslik} : {symbol}"
+        f"                   ADX "
+        f"{adx_isaret} "
+        f"{adx_deger:.1f}\n"
 
-        f"🟢 Günlük: "
-        f"{sonuc['gunluk_yuzde']:+.2f}%\n"
+        f"⭐ Sinyal Gücü: "
+        f"{sonuc['sinyal_gucu']}/100\n\n"
 
-        f"🟢 1 Hafta: "
-        f"{sonuc['haftalik_yuzde']:+.2f}%\n\n"
+        f"💰 Giriş: "
+        f"{fiyat:.2f} TL\n"
+
+        f"{'🟢' if sonuc['daily_change'] >= 0 else '🔴'} "
+        f"Günlük: "
+        f"{sonuc['daily_change']:+.2f}%\n"
+
+        f"{'🟢' if sonuc['weekly_change'] >= 0 else '🔴'} "
+        f"1 Hafta: "
+        f"{sonuc['weekly_change']:+.2f}%\n"
 
         f"📏 EMA14: "
-        f"{sonuc['ema']:.2f} TL "
-        f"({sonuc['ema_yuzde']:+.2f}%)\n"
+        f"{sonuc['ema14']:.2f} TL "
+        f"({sonuc['ema_mesafe']:+.2f}%)\n"
 
         f"📊 RSI: "
-        f"{sonuc['rsi']:.1f}\n\n"
+        f"{sonuc['rsi14']:.1f}\n\n"
 
         f"📐 FIB SEVİYELERİ\n\n"
-    )
 
-    for oran in sorted(
-        sonuc["fib"].keys(),
-        reverse=True
-    ):
+        f"{fib_satiri('0.000', fibler['0.000'], fiyat, fiyat_fib)}\n"
 
-        seviye = sonuc["fib"][oran]
+        f"{fib_satiri('0.236', fibler['0.236'], fiyat, fiyat_fib)}\n"
 
-        mesaj += (
-            f"{fib_satiri(oran, seviye, fiyat)}\n"
-        )
+        f"{fib_satiri('0.382', fibler['0.382'], fiyat, fiyat_fib)}\n"
 
-    mesaj += "\n🛑 STOP\n"
+        f"{fib_satiri('0.500', fibler['0.500'], fiyat, fiyat_fib)}\n"
 
-    if sonuc["stop"] is not None:
+        f"{fib_satiri('0.618', fibler['0.618'], fiyat, fiyat_fib)}\n"
 
-        mesaj += (
-            f"{sonuc['stop_oran']:.3f} → "
-            f"{sonuc['stop']:.2f} TL\n"
-        )
+        f"{fib_satiri('0.786', fibler['0.786'], fiyat, fiyat_fib)}\n"
 
-    else:
+        f"{fib_satiri('1.000', fibler['1.000'], fiyat, fiyat_fib)}\n\n"
 
-        mesaj += "Yok\n"
+        f"🛑 STOP\n"
 
-    mesaj += (
-        "\n🎯 TEPE POTANSİYELİ\n"
-    )
+        f"{stop_fib} → "
+        f"{stop:.2f} TL\n\n"
 
-    if sonuc["tepe"] is not None:
+        f"🎯 TEPE POTANSİYELİ\n"
 
-        mesaj += (
-            f"1.000 → "
-            f"{sonuc['tepe']:.2f} TL  |  "
-            f"{sonuc['tepe_potansiyel']:+.2f}%\n"
-        )
+        f"1.000 → "
+        f"{fibler['1.000']:.2f} TL"
+        f"  |  "
+        f"{sonuc['tepe_potansiyel']:+.2f}%\n\n"
 
-    else:
-
-        mesaj += "Yok\n"
-
-    mesaj += (
-        f"\n🏦 Pazar: {pazar}\n"
+        f"🏦 Pazar: "
+        f"{'BIST 100' if symbol in BIST100_GLOBAL else 'Ana Pazar'}\n"
 
         f"🔊 Hacim: "
-        f"{sonuc['hacim'] / 1_000_000:.1f}M"
+        f"{sonuc['volume'] / 1_000_000:.1f}M"
     )
 
     return mesaj
 
 
 # ============================================================
-# AYLIK VERİ
+# MAIN
 # ============================================================
 
-def aylik_veri_al(symbol):
+BIST100_GLOBAL = set()
 
-    for deneme in range(
-        MAX_RETRIES
-    ):
-
-        try:
-
-            ticker = bp.Ticker(symbol)
-
-            df = ticker.history(
-                period="5y",
-                interval="1mo"
-            )
-
-            if df is None or df.empty:
-                raise ValueError(
-                    "Boş aylık veri"
-                )
-
-            df = df.copy()
-
-            df = numeric_temizle(
-                df,
-                ["Close"]
-            )
-
-            df = df.dropna(
-                subset=["Close"]
-            )
-
-            if len(df) >= 40:
-                return df
-
-            raise ValueError(
-                f"Yetersiz aylık veri: {len(df)}"
-            )
-
-        except Exception as e:
-
-            print(
-                f"{symbol} aylık veri hatası "
-                f"({deneme + 1}/{MAX_RETRIES}): {e}"
-            )
-
-            if deneme < MAX_RETRIES - 1:
-                time.sleep(1)
-
-    return None
-
-
-# ============================================================
-# AYLIK MACD
-# ============================================================
-
-def aylik_macd_hesapla(df):
-
-    close = pd.to_numeric(
-        df["Close"],
-        errors="coerce"
-    )
-
-    ema12 = close.ewm(
-        span=12,
-        adjust=False
-    ).mean()
-
-    ema26 = close.ewm(
-        span=26,
-        adjust=False
-    ).mean()
-
-    macd = ema12 - ema26
-
-    signal = macd.ewm(
-        span=9,
-        adjust=False
-    ).mean()
-
-    return macd, signal
-
-
-# ============================================================
-# AYLIK MACD SİNYAL
-# ============================================================
-
-def aylik_macd_sinyal(symbol):
-
-    try:
-
-        df = aylik_veri_al(
-            symbol
-        )
-
-        if df is None or len(df) < 40:
-            return None
-
-        df = df.copy()
-
-        try:
-
-            df.index = pd.to_datetime(
-                df.index
-            )
-
-        except Exception:
-            pass
-
-        macd, signal = aylik_macd_hesapla(
-            df
-        )
-
-        df["MACD"] = pd.to_numeric(
-            macd,
-            errors="coerce"
-        )
-
-        df["SIGNAL"] = pd.to_numeric(
-            signal,
-            errors="coerce"
-        )
-
-        df = df.dropna(
-            subset=[
-                "MACD",
-                "SIGNAL"
-            ]
-        )
-
-        if len(df) < 3:
-            return None
-
-        simdi = datetime.now(
-            ISTANBUL
-        )
-
-        son_index = df.index[-1]
-
-        son_ay_canli = False
-
-        try:
-
-            son_ay_canli = (
-                son_index.year == simdi.year and
-                son_index.month == simdi.month
-            )
-
-        except Exception:
-            pass
-
-        son = df.iloc[-1]
-        onceki = df.iloc[-2]
-        iki_onceki = df.iloc[-3]
-
-        try:
-
-            ay_etiketi = (
-                f"{son_index.year:04d}-"
-                f"{son_index.month:02d}"
-            )
-
-        except Exception:
-
-            ay_etiketi = simdi.strftime(
-                "%Y-%m"
-            )
-
-        sayisal = [
-            son["MACD"],
-            onceki["MACD"],
-            iki_onceki["MACD"],
-            son["SIGNAL"],
-            onceki["SIGNAL"]
-        ]
-
-        if any(
-            pd.isna(x)
-            for x in sayisal
-        ):
-            return None
-
-        son_macd = float(
-            son["MACD"]
-        )
-
-        onceki_macd = float(
-            onceki["MACD"]
-        )
-
-        iki_onceki_macd = float(
-            iki_onceki["MACD"]
-        )
-
-        son_signal = float(
-            son["SIGNAL"]
-        )
-
-        onceki_signal = float(
-            onceki["SIGNAL"]
-        )
-
-        # ====================================================
-        # 🟢 AYLIK
-        #
-        # MACD Signal'ı yukarı kesiyor
-        # ====================================================
-
-        aylik_al = (
-            onceki_macd <= onceki_signal and
-            son_macd > son_signal
-        )
-
-        # ====================================================
-        # 🟠 AYLIK ÜSTÜNE ATTI
-        # ====================================================
-
-        aylik_ustune_atti = (
-            son_macd > onceki_macd and
-            onceki_macd <= iki_onceki_macd
-        )
-
-        return {
-            "symbol": symbol,
-            "ay": ay_etiketi,
-
-            "aylik_al": aylik_al,
-
-            "aylik_ustune_atti":
-                aylik_ustune_atti,
-
-            "macd": son_macd,
-            "signal": son_signal,
-
-            "onceki_macd":
-                onceki_macd,
-
-            "iki_onceki_macd":
-                iki_onceki_macd,
-
-            "canli_ay":
-                son_ay_canli
-        }
-
-    except Exception as e:
-
-        print(
-            f"{symbol} aylık MACD analiz hatası: {e}"
-        )
-
-        return None
-
-
-# ============================================================
-# TARAMA LİSTESİ
-# ============================================================
-
-def tarama_listesi_olustur():
-
-    bist100 = bist100_listesi()
-
-    liste = set()
-
-    liste.update(
-        bist100
-    )
-
-    liste.update(
-        ANA_PAZAR
-    )
-
-    return sorted(
-        liste
-    )
-
-
-# ============================================================
-# AYLIK MESAJ DETAY
-# ============================================================
-
-def aylik_mesaj_detay(symbol):
-
-    return analiz_et(
-        symbol,
-        sadece_sinyal=True
-    )
-
-
-# ============================================================
-# AYLIK TARAMA
-# ============================================================
-
-def aylik_macd_tarama(
-    tarama_listesi
-):
-
-    print(
-        f"\n📅 Aylık MACD taraması başladı. "
-        f"{len(tarama_listesi)} hisse..."
-    )
-
-    kayitlar = (
-        aylik_macd_kayitlari_oku()
-    )
-
-    sinyaller = []
-
-    with ThreadPoolExecutor(
-        max_workers=MAX_WORKERS
-    ) as executor:
-
-        futures = {
-            executor.submit(
-                aylik_macd_sinyal,
-                symbol
-            ): symbol
-
-            for symbol in tarama_listesi
-        }
-
-        tamamlanan = 0
-        toplam = len(futures)
-
-        for future in as_completed(
-            futures
-        ):
-
-            symbol = futures[future]
-
-            tamamlanan += 1
-
-            try:
-
-                sonuc = future.result()
-
-                if sonuc is None:
-                    continue
-
-                ay = sonuc["ay"]
-
-                # =================================================
-                # 🟢 AYLIK
-                # =================================================
-
-                if sonuc["aylik_al"]:
-
-                    anahtar = (
-                        f"AYLIK_MACD_AL|"
-                        f"{symbol}|"
-                        f"{ay}"
-                    )
-
-                    if anahtar not in kayitlar:
-
-                        sinyaller.append(
-                            (
-                                "AYLIK",
-                                symbol,
-                                ay
-                            )
-                        )
-
-                # =================================================
-                # 🟠 AYLIK ÜSTÜNE ATTI
-                # =================================================
-
-                if sonuc["aylik_ustune_atti"]:
-
-                    anahtar = (
-                        f"AYLIK_MACD_USTUNE|"
-                        f"{symbol}|"
-                        f"{ay}"
-                    )
-
-                    if anahtar not in kayitlar:
-
-                        sinyaller.append(
-                            (
-                                "AYLIK ÜSTÜNE ATTI",
-                                symbol,
-                                ay
-                            )
-                        )
-
-            except Exception as e:
-
-                print(
-                    f"{symbol} aylık sonuç hatası: {e}"
-                )
-
-            if tamamlanan % 25 == 0:
-
-                print(
-                    f"Aylık tarama: "
-                    f"{tamamlanan}/{toplam}"
-                )
-
-    # ============================================================
-    # GÖNDER
-    # ============================================================
-
-    for (
-        sinyal_tipi,
-        symbol,
-        ay
-    ) in sinyaller:
-
-        detay = aylik_mesaj_detay(
-            symbol
-        )
-
-        if detay is None:
-
-            print(
-                f"⚠️ {symbol} aylık sinyal var "
-                f"ama mesaj detayları alınamadı."
-            )
-
-            continue
-
-        if sinyal_tipi == "AYLIK":
-
-            baslik = "🟢 AYLIK"
-
-        else:
-
-            baslik = "🟠 AYLIK ÜSTÜNE ATTI"
-
-        mesaj = mesaj_olustur(
-            detay,
-            baslik
-        )
-
-        print(
-            f"\nAYLIK SİNYAL: "
-            f"{sinyal_tipi} - {symbol}"
-        )
-
-        if telegram_gonder(mesaj):
-
-            if sinyal_tipi == "AYLIK":
-
-                aylik_macd_kaydet(
-                    "AYLIK_MACD_AL",
-                    symbol,
-                    ay
-                )
-
-            else:
-
-                aylik_macd_kaydet(
-                    "AYLIK_MACD_USTUNE",
-                    symbol,
-                    ay
-                )
-
-            print(
-                f"✅ Telegram gönderildi: "
-                f"{sinyal_tipi} {symbol}"
-            )
-
-        else:
-
-            print(
-                f"❌ Telegram gönderilemedi: "
-                f"{sinyal_tipi} {symbol}"
-            )
-
-
-# ============================================================
-# ANA
-# ============================================================
 
 def main():
 
-    simdi = datetime.now(
+    global BIST100_GLOBAL
+
+    print(
+        "\n===================================="
+    )
+
+    print(
+        "TRADING BOT BASLADI"
+    )
+
+    print(
+        "===================================="
+    )
+
+    now = datetime.now(
         ISTANBUL
     )
 
     print(
-        "\n========================================"
+        "Saat:",
+        now.strftime(
+            "%d.%m.%Y %H:%M"
+        )
     )
-
-    print(
-        "BIST TARAMA BOTU BAŞLADI"
-    )
-
-    print(
-        f"Türkiye saati: "
-        f"{simdi.strftime('%Y-%m-%d %H:%M:%S')}"
-    )
-
-    print(
-        "========================================"
-    )
-
-    # --------------------------------------------------------
-    # PİYASA KAPALIYSA BU ÇALIŞMADA ÇIK
-    # --------------------------------------------------------
 
     if not piyasa_acik_mi():
 
         print(
-            "⏸ Piyasa kapalı. "
-            "Bu çalışma sonlandırılıyor."
+            "Piyasa saati disinda."
         )
 
         return
 
     # ========================================================
-    # LİSTE
+    # BIST LİSTELERİ
     # ========================================================
 
-    tarama_listesi = (
-        tarama_listesi_olustur()
+    print(
+        "BIST 100 listesi aliniyor..."
+    )
+
+    bist100 = (
+        bist100_listesi()
+    )
+
+    if not bist100:
+
+        print(
+            "BIST 100 listesi alınamadı."
+        )
+
+        return
+
+    BIST100_GLOBAL = bist100
+
+    tarama_listesi = sorted(
+        bist100 | ANA_PAZAR
     )
 
     print(
-        f"Toplam taranacak hisse: "
-        f"{len(tarama_listesi)}"
+        "BIST 100 hisse sayisi:",
+        len(bist100)
+    )
+
+    print(
+        "Ana Pazar hisse sayisi:",
+        len(ANA_PAZAR)
+    )
+
+    print(
+        "Toplam benzersiz taranacak hisse:",
+        len(tarama_listesi)
     )
 
     # ========================================================
-    # GÜNLÜK GÖNDERİLENLER
+    # GÜNLÜK TARAMA
     # ========================================================
 
     gonderilenler = (
@@ -2048,145 +1828,397 @@ def main():
     )
 
     print(
-        f"Bugün gönderilmiş günlük hisse: "
-        f"{len(gonderilenler)}"
+        "Bugün daha önce gönderilen:",
+        len(gonderilenler)
     )
 
-    # ========================================================
-    # GÜNLÜK TARAMA
-    # ========================================================
+    bulunan = []
+
+    tamamlanan = 0
+
+    baslangic_zamani = (
+        datetime.now(
+            ISTANBUL
+        )
+    )
 
     print(
-        "\n📊 Günlük tarama başladı..."
+        "\n⚡ Günlük hızlı tarama başlıyor..."
     )
 
-    bulunanlar = []
+    print(
+        f"⚡ Aynı anda "
+        f"{MAX_WORKERS} hisse taranacak."
+    )
+
+    print(
+        "📏 EMA14 minimum mesafe: +2%"
+    )
+
+    print(
+        "📊 RSI14: 50 yukarı kesiş + yükseliş"
+    )
+
+    print(
+        "📈 EMA14: yükseliş"
+    )
+
+    print(
+        "☁️ Ichimoku Base: yukarı kırılım"
+    )
+
+    print(
+        "📐 Fibonacci: Son 100 günlük dip/tepe"
+    )
+
+    print(
+        "🛑 STOP: Fiyatın altındaki en yakın Fib"
+    )
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
     ) as executor:
 
-        futures = {
+        gelecekler = {
+
             executor.submit(
                 analiz_et,
                 symbol
             ): symbol
 
-            for symbol in tarama_listesi
+            for symbol
+            in tarama_listesi
         }
 
-        tamamlanan = 0
-        toplam = len(futures)
-
-        for future in as_completed(
-            futures
+        for gelecek in as_completed(
+            gelecekler
         ):
 
-            symbol = futures[future]
-
-            tamamlanan += 1
+            symbol = gelecekler[
+                gelecek
+            ]
 
             try:
 
-                sonuc = future.result()
+                sonuc = (
+                    gelecek.result()
+                )
 
-                if sonuc is not None:
+                tamamlanan += 1
 
-                    bulunanlar.append(
-                        sonuc
-                    )
+                if sonuc:
 
-                    print(
-                        f"🟢 GÜNLÜK ADAY: "
-                        f"{symbol}"
-                    )
+                    if symbol in gonderilenler:
 
-            except Exception as e:
+                        print(
+                            f"⏭️ {symbol} "
+                            "bugün zaten gönderildi."
+                        )
+
+                    else:
+
+                        bulunan.append(
+                            sonuc
+                        )
+
+                        gonderilenler.add(
+                            symbol
+                        )
+
+            except Exception as hata:
+
+                tamamlanan += 1
 
                 print(
-                    f"{symbol} günlük sonuç hatası: "
-                    f"{e}"
+                    symbol,
+                    "PARALEL HATA:",
+                    type(hata).__name__,
+                    str(hata)
                 )
 
             if tamamlanan % 25 == 0:
 
                 print(
-                    f"Günlük tarama: "
-                    f"{tamamlanan}/{toplam}"
+                    f"İlerleme: "
+                    f"{tamamlanan}/"
+                    f"{len(tarama_listesi)}"
                 )
+
+    sure = (
+        datetime.now(
+            ISTANBUL
+        )
+        -
+        baslangic_zamani
+    ).total_seconds()
+
+    print(
+        f"\n⏱️ Günlük tarama süresi: "
+        f"{int(sure // 60)} dakika "
+        f"{int(sure % 60)} saniye"
+    )
+
+    print(
+        "\n===================================="
+    )
+
+    print(
+        "GÜNLÜK TARAMA TAMAMLANDI"
+    )
+
+    print(
+        "===================================="
+    )
+
+    print(
+        "Yeni bulunan günlük hisse:",
+        len(bulunan)
+    )
 
     # ========================================================
     # GÜNLÜK TELEGRAM
     # ========================================================
 
-    print(
-        f"\nGünlük bulunan sinyal: "
-        f"{len(bulunanlar)}"
-    )
+    basariyla_gonderilenler = set()
 
-    for sonuc in bulunanlar:
+    for sonuc in bulunan:
 
         symbol = sonuc["symbol"]
 
-        if symbol in gonderilenler:
-
-            print(
-                f"⏭ Daha önce gönderildi: "
-                f"{symbol}"
-            )
-
-            continue
-
-        mesaj = mesaj_olustur(
+        mesaj = mesaj_hazirla(
             sonuc,
             "🟢 YENİ"
         )
 
-        print(
-            f"\n📤 Günlük gönderiliyor: "
-            f"{symbol}"
+        if telegram_gonder(
+            mesaj
+        ):
+
+            basariyla_gonderilenler.add(
+                symbol
+            )
+
+    if basariyla_gonderilenler:
+
+        gonderilenleri_kaydet(
+            basariyla_gonderilenler
         )
 
-        if telegram_gonder(mesaj):
+    else:
 
-            gonderilen_kaydet(
+        print(
+            "Yeni gönderilen günlük hisse yok."
+        )
+
+    # ========================================================
+    # AYLIK MACD TARAMASI
+    # ========================================================
+
+    print(
+        "\n===================================="
+    )
+
+    print(
+        "🔴 AYLIK MACD TARAMASI BAŞLIYOR"
+    )
+
+    print(
+        "===================================="
+    )
+
+    print(
+        "📊 MACD: 12 / 26"
+    )
+
+    print(
+        "📈 Signal: 9"
+    )
+
+    print(
+        "🔴 ŞART: MACD Level aşağıdan yukarı Signal kesişimi"
+    )
+
+    print(
+        "⏱️ Ay sonu beklenmeyecek."
+    )
+
+    print(
+        "📅 İçinde bulunulan aylık mum kullanılacak."
+    )
+
+    aylik_gonderilenler = (
+        aylik_gonderilenleri_oku()
+    )
+
+    print(
+        "Bu ay daha önce gönderilen aylık hisse:",
+        len(aylik_gonderilenler)
+    )
+
+    aylik_bulunan = []
+
+    aylik_tamamlanan = 0
+
+    aylik_baslangic = (
+        datetime.now(
+            ISTANBUL
+        )
+    )
+
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS
+    ) as executor:
+
+        aylik_gelecekler = {
+
+            executor.submit(
+                aylik_macd_analiz_et,
+                symbol
+            ): symbol
+
+            for symbol
+            in tarama_listesi
+        }
+
+        for gelecek in as_completed(
+            aylik_gelecekler
+        ):
+
+            symbol = aylik_gelecekler[
+                gelecek
+            ]
+
+            try:
+
+                sonuc = (
+                    gelecek.result()
+                )
+
+                aylik_tamamlanan += 1
+
+                if sonuc:
+
+                    if symbol in aylik_gonderilenler:
+
+                        print(
+                            f"⏭️ {symbol} "
+                            "bu ay zaten AYLIK gönderildi."
+                        )
+
+                    else:
+
+                        print(
+                            f"🔴 AYLIK MACD KESİŞİMİ: "
+                            f"{symbol}"
+                        )
+
+                        aylik_bulunan.append(
+                            sonuc
+                        )
+
+                        aylik_gonderilenler.add(
+                            symbol
+                        )
+
+            except Exception as hata:
+
+                aylik_tamamlanan += 1
+
+                print(
+                    symbol,
+                    "AYLIK PARALEL HATA:",
+                    type(hata).__name__,
+                    str(hata)
+                )
+
+            if aylik_tamamlanan % 25 == 0:
+
+                print(
+                    f"📊 Aylık ilerleme: "
+                    f"{aylik_tamamlanan}/"
+                    f"{len(tarama_listesi)}"
+                )
+
+    aylik_sure = (
+        datetime.now(
+            ISTANBUL
+        )
+        -
+        aylik_baslangic
+    ).total_seconds()
+
+    print(
+        f"\n⏱️ Aylık MACD tarama süresi: "
+        f"{int(aylik_sure // 60)} dakika "
+        f"{int(aylik_sure % 60)} saniye"
+    )
+
+    print(
+        "\n===================================="
+    )
+
+    print(
+        "🔴 AYLIK MACD TARAMASI TAMAMLANDI"
+    )
+
+    print(
+        "===================================="
+    )
+
+    print(
+        "Yeni aylık MACD hissesi:",
+        len(aylik_bulunan)
+    )
+
+    # ========================================================
+    # AYLIK TELEGRAM
+    # ========================================================
+
+    aylik_basariyla_gonderilenler = set()
+
+    for sonuc in aylik_bulunan:
+
+        symbol = sonuc["symbol"]
+
+        mesaj = mesaj_hazirla(
+            sonuc,
+            "🔴 AYLIK"
+        )
+
+        # İstersen MACD değerlerini de mesajın en altına
+        # ekleyebilirsin. Şimdilik mevcut mesaj formatını
+        # birebir koruyoruz.
+
+        if telegram_gonder(
+            mesaj
+        ):
+
+            aylik_basariyla_gonderilenler.add(
                 symbol
             )
 
-            gonderilenler.add(
-                symbol
-            )
+    if aylik_basariyla_gonderilenler:
 
-            print(
-                f"✅ Günlük gönderildi: "
-                f"{symbol}"
-            )
+        aylik_gonderilenleri_kaydet(
+            aylik_basariyla_gonderilenler
+        )
 
-        else:
+    else:
 
-            print(
-                f"❌ Günlük gönderilemedi: "
-                f"{symbol}"
-            )
+        print(
+            "Yeni gönderilen aylık hisse yok."
+        )
 
-    # ========================================================
-    # AYLIK MACD
-    # ========================================================
-
-    aylik_macd_tarama(
-        tarama_listesi
+    print(
+        "\n===================================="
     )
 
     print(
-        "\n========================================"
+        "BOT TAMAMLANDI"
     )
 
     print(
-        "TARAMA TAMAMLANDI"
-    )
-
-    print(
-        "========================================"
+        "===================================="
     )
 
 
@@ -2195,4 +2227,5 @@ def main():
 # ============================================================
 
 if __name__ == "__main__":
+
     main()
