@@ -19,6 +19,9 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
 AYLIK_GONDERILEN_DOSYA = "gonderilen_aylik_hisseler.txt"
 
+# 5 günlük performans takip dosyası
+PERFORMANS_DOSYA = "5_gunluk_performans.txt"
+
 EMA_PERIOD = 14
 RSI_PERIOD = 14
 BASE_PERIOD = 26
@@ -93,9 +96,15 @@ def gonderilenleri_oku():
         return set()
 
     try:
+
         kayitlar = set()
 
-        with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
+        with open(
+            GONDERILEN_DOSYA,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
+
             for satir in dosya:
 
                 satir = satir.strip()
@@ -106,10 +115,13 @@ def gonderilenleri_oku():
                 parcalar = satir.split("|")
 
                 if len(parcalar) == 2:
+
                     tarih, hisse = parcalar
 
                     if tarih == bugun:
-                        kayitlar.add(hisse.upper())
+                        kayitlar.add(
+                            hisse.upper()
+                        )
 
         return kayitlar
 
@@ -126,13 +138,17 @@ def gonderilenleri_oku():
 
 def gonderilenleri_kaydet(hisseler):
 
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
+    bugun = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m-%d")
 
     try:
 
         mevcut = []
 
-        if os.path.exists(GONDERILEN_DOSYA):
+        if os.path.exists(
+            GONDERILEN_DOSYA
+        ):
 
             with open(
                 GONDERILEN_DOSYA,
@@ -150,10 +166,13 @@ def gonderilenleri_kaydet(hisseler):
         bugunku = {
             satir
             for satir in mevcut
-            if satir.startswith(bugun + "|")
+            if satir.startswith(
+                bugun + "|"
+            )
         }
 
         for hisse in hisseler:
+
             bugunku.add(
                 f"{bugun}|{hisse.upper()}"
             )
@@ -161,7 +180,9 @@ def gonderilenleri_kaydet(hisseler):
         eski = [
             satir
             for satir in mevcut
-            if not satir.startswith(bugun + "|")
+            if not satir.startswith(
+                bugun + "|"
+            )
         ]
 
         with open(
@@ -170,10 +191,17 @@ def gonderilenleri_kaydet(hisseler):
             encoding="utf-8"
         ) as dosya:
 
-            for satir in sorted(eski + list(bugunku)):
-                dosya.write(satir + "\n")
+            for satir in sorted(
+                eski + list(bugunku)
+            ):
 
-        print("Günlük kayıt dosyası güncellendi.")
+                dosya.write(
+                    satir + "\n"
+                )
+
+        print(
+            "Günlük kayıt dosyası güncellendi."
+        )
 
     except Exception as hata:
 
@@ -190,9 +218,13 @@ def gonderilenleri_kaydet(hisseler):
 
 def aylik_gonderilenleri_oku():
 
-    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
+    bu_ay = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m")
 
-    if not os.path.exists(AYLIK_GONDERILEN_DOSYA):
+    if not os.path.exists(
+        AYLIK_GONDERILEN_DOSYA
+    ):
         return set()
 
     try:
@@ -219,7 +251,10 @@ def aylik_gonderilenleri_oku():
                     ay, hisse = parcalar
 
                     if ay == bu_ay:
-                        kayitlar.add(hisse.upper())
+
+                        kayitlar.add(
+                            hisse.upper()
+                        )
 
         return kayitlar
 
@@ -236,13 +271,17 @@ def aylik_gonderilenleri_oku():
 
 def aylik_gonderilenleri_kaydet(hisseler):
 
-    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
+    bu_ay = datetime.now(
+        ISTANBUL
+    ).strftime("%Y-%m")
 
     try:
 
         mevcut = []
 
-        if os.path.exists(AYLIK_GONDERILEN_DOSYA):
+        if os.path.exists(
+            AYLIK_GONDERILEN_DOSYA
+        ):
 
             with open(
                 AYLIK_GONDERILEN_DOSYA,
@@ -260,7 +299,9 @@ def aylik_gonderilenleri_kaydet(hisseler):
         bu_ayki = {
             satir
             for satir in mevcut
-            if satir.startswith(bu_ay + "|")
+            if satir.startswith(
+                bu_ay + "|"
+            )
         }
 
         for hisse in hisseler:
@@ -272,7 +313,9 @@ def aylik_gonderilenleri_kaydet(hisseler):
         eski = [
             satir
             for satir in mevcut
-            if not satir.startswith(bu_ay + "|")
+            if not satir.startswith(
+                bu_ay + "|"
+            )
         ]
 
         with open(
@@ -281,10 +324,17 @@ def aylik_gonderilenleri_kaydet(hisseler):
             encoding="utf-8"
         ) as dosya:
 
-            for satir in sorted(eski + list(bu_ayki)):
-                dosya.write(satir + "\n")
+            for satir in sorted(
+                eski + list(bu_ayki)
+            ):
 
-        print("Aylık kayıt dosyası güncellendi.")
+                dosya.write(
+                    satir + "\n"
+                )
+
+        print(
+            "Aylık kayıt dosyası güncellendi."
+        )
 
     except Exception as hata:
 
@@ -293,6 +343,618 @@ def aylik_gonderilenleri_kaydet(hisseler):
             type(hata).__name__,
             str(hata)
         )
+
+
+# ============================================================
+# 5 GÜNLÜK PERFORMANS TAKİP
+#
+# DOSYA FORMATI:
+#
+# tarih|hisse|fiyat|tip
+#
+# Örnek:
+#
+# 2026-09-14|ASELS|215.00|GUNLUK
+# 2026-09-14|THYAO|310.50|AYLIK
+#
+# ============================================================
+
+def performans_kayitlarini_oku():
+
+    if not os.path.exists(
+        PERFORMANS_DOSYA
+    ):
+        return []
+
+    kayitlar = []
+
+    try:
+
+        with open(
+            PERFORMANS_DOSYA,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in dosya:
+
+                satir = satir.strip()
+
+                if not satir:
+                    continue
+
+                parcalar = satir.split("|")
+
+                if len(parcalar) != 4:
+                    continue
+
+                tarih, hisse, fiyat, tip = parcalar
+
+                try:
+
+                    fiyat = float(fiyat)
+
+                except Exception:
+
+                    continue
+
+                kayitlar.append({
+                    "tarih": tarih,
+                    "symbol": hisse.upper(),
+                    "fiyat": fiyat,
+                    "tip": tip.upper()
+                })
+
+        return kayitlar
+
+    except Exception as hata:
+
+        print(
+            "Performans kayıtları okunamadı:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return []
+
+
+def performans_kaydi_ekle(
+    symbol,
+    fiyat,
+    tip
+):
+
+    try:
+
+        tarih = datetime.now(
+            ISTANBUL
+        ).strftime("%Y-%m-%d")
+
+        kayit = (
+            f"{tarih}|"
+            f"{symbol.upper()}|"
+            f"{float(fiyat):.8f}|"
+            f"{tip.upper()}"
+        )
+
+        mevcut = []
+
+        if os.path.exists(
+            PERFORMANS_DOSYA
+        ):
+
+            with open(
+                PERFORMANS_DOSYA,
+                "r",
+                encoding="utf-8"
+            ) as dosya:
+
+                for satir in dosya:
+
+                    satir = satir.strip()
+
+                    if satir:
+                        mevcut.append(satir)
+
+        # Aynı tarih + hisse + tip tekrar kaydedilmesin
+
+        kontrol = (
+            f"{tarih}|"
+            f"{symbol.upper()}|"
+        )
+
+        for satir in mevcut:
+
+            if (
+                satir.startswith(kontrol)
+                and
+                satir.endswith(
+                    "|" + tip.upper()
+                )
+            ):
+
+                return
+
+        with open(
+            PERFORMANS_DOSYA,
+            "a",
+            encoding="utf-8"
+        ) as dosya:
+
+            dosya.write(
+                kayit + "\n"
+            )
+
+        print(
+            f"📌 5 günlük takip kaydedildi: "
+            f"{symbol} | {tip} | "
+            f"{fiyat:.2f} TL"
+        )
+
+    except Exception as hata:
+
+        print(
+            "Performans kaydı eklenemedi:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+
+def performans_kaydi_sil(
+    kayit
+):
+
+    try:
+
+        mevcut = []
+
+        if os.path.exists(
+            PERFORMANS_DOSYA
+        ):
+
+            with open(
+                PERFORMANS_DOSYA,
+                "r",
+                encoding="utf-8"
+            ) as dosya:
+
+                mevcut = [
+                    satir.strip()
+                    for satir in dosya
+                    if satir.strip()
+                ]
+
+        hedef = (
+            f"{kayit['tarih']}|"
+            f"{kayit['symbol']}|"
+            f"{kayit['fiyat']:.8f}|"
+            f"{kayit['tip']}"
+        )
+
+        yeni = []
+
+        silindi = False
+
+        for satir in mevcut:
+
+            parcalar = satir.split("|")
+
+            if len(parcalar) != 4:
+
+                yeni.append(satir)
+                continue
+
+            try:
+
+                ayni = (
+                    parcalar[0] == kayit["tarih"]
+                    and
+                    parcalar[1].upper()
+                    == kayit["symbol"].upper()
+                    and
+                    abs(
+                        float(parcalar[2])
+                        - kayit["fiyat"]
+                    ) < 0.000001
+                    and
+                    parcalar[3].upper()
+                    == kayit["tip"].upper()
+                )
+
+            except Exception:
+
+                ayni = False
+
+            if ayni and not silindi:
+
+                silindi = True
+                continue
+
+            yeni.append(satir)
+
+        with open(
+            PERFORMANS_DOSYA,
+            "w",
+            encoding="utf-8"
+        ) as dosya:
+
+            for satir in yeni:
+                dosya.write(
+                    satir + "\n"
+                )
+
+    except Exception as hata:
+
+        print(
+            "Performans kaydı silinemedi:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+
+# ============================================================
+# PERFORMANS İÇİN 5. İŞLEM GÜNÜNÜ BUL
+#
+# Burada takvim günü değil, borsapy'den gelen gerçek
+# işlem günleri kullanılıyor.
+# ============================================================
+
+def besinci_islem_gunu_bul(
+    df,
+    sinyal_tarihi
+):
+
+    try:
+
+        if df is None:
+            return None
+
+        if "Close" not in df.columns:
+            return None
+
+        if len(df) == 0:
+            return None
+
+        veri = df.copy()
+
+        if not isinstance(
+            veri.index,
+            pd.DatetimeIndex
+        ):
+
+            veri.index = pd.to_datetime(
+                veri.index
+            )
+
+        # Saat bilgisini kaldır
+        tarihler = pd.DatetimeIndex(
+            veri.index
+        ).normalize()
+
+        sinyal_gunu = pd.Timestamp(
+            sinyal_tarihi
+        ).normalize()
+
+        # Sinyal gününden sonraki gerçek işlem günleri
+        sonraki = []
+
+        for i in range(
+            len(veri)
+        ):
+
+            tarih = tarihler[i]
+
+            if tarih > sinyal_gunu:
+
+                try:
+
+                    fiyat = float(
+                        veri.iloc[i]["Close"]
+                    )
+
+                except Exception:
+
+                    continue
+
+                if pd.isna(fiyat):
+                    continue
+
+                sonraki.append({
+                    "tarih": tarih,
+                    "fiyat": fiyat
+                })
+
+        # En az 5 işlem günü gerekiyor
+        if len(sonraki) < 5:
+            return None
+
+        return sonraki[4]
+
+    except Exception as hata:
+
+        print(
+            "5. işlem günü hesaplama HATA:",
+            type(hata).__name__,
+            str(hata)
+        )
+
+        return None
+
+
+# ============================================================
+# 5 GÜNLÜK PERFORMANS MESAJI
+# ============================================================
+
+def performans_mesaji_hazirla(
+    kayit,
+    sonuc_tarihi,
+    sonuc_fiyati,
+    performans
+):
+
+    symbol = kayit["symbol"]
+
+    tip = kayit["tip"]
+
+    if performans >= 0:
+
+        emoji = "🟢"
+        durum = "POZİTİF"
+
+    else:
+
+        emoji = "🔴"
+        durum = "NEGATİF"
+
+    if tip == "AYLIK":
+
+        sinyal_tipi = "🔴 AYLIK"
+
+    else:
+
+        sinyal_tipi = "🟢 GÜNLÜK"
+
+    mesaj = (
+
+        f"📊 5 GÜNLÜK PERFORMANS\n\n"
+
+        f"{emoji} {symbol}\n\n"
+
+        f"📌 Sinyal: {sinyal_tipi}\n"
+
+        f"📅 Sinyal tarihi: "
+        f"{kayit['tarih']}\n"
+
+        f"💰 Sinyal fiyatı: "
+        f"{kayit['fiyat']:.2f} TL\n\n"
+
+        f"📅 5. işlem günü: "
+        f"{sonuc_tarihi.strftime('%d.%m.%Y')}\n"
+
+        f"💰 5. gün fiyatı: "
+        f"{sonuc_fiyati:.2f} TL\n\n"
+
+        f"{emoji} Performans: "
+        f"{performans:+.2f}%\n\n"
+
+        f"{'✅' if performans >= 0 else '❌'} "
+        f"5 GÜNLÜK SONUÇ: {durum}"
+    )
+
+    return mesaj
+
+
+# ============================================================
+# 5 GÜNLÜK PERFORMANS KONTROLÜ
+#
+# SADECE VADESİ GELMİŞ KAYITLARIN VERİSİ ÇEKİLİR.
+#
+# Bu fonksiyon bütün hisseleri tekrar taramaz.
+# ============================================================
+
+def bes_gunluk_performans_kontrol():
+
+    print("\n====================================")
+    print("📊 5 GÜNLÜK PERFORMANS KONTROLÜ")
+    print("====================================")
+
+    kayitlar = performans_kayitlarini_oku()
+
+    if not kayitlar:
+
+        print(
+            "📭 Bekleyen 5 günlük performans kaydı yok."
+        )
+
+        return
+
+    print(
+        "Toplam takip edilen kayıt:",
+        len(kayitlar)
+    )
+
+    bugun = datetime.now(
+        ISTANBUL
+    ).date()
+
+    kontrol_edilecek = []
+
+    # --------------------------------------------------------
+    # Önce sadece gerçekten 5 işlem günü geçmiş olabilecek
+    # kayıtları seçiyoruz.
+    #
+    # En erken kontrol için 7 takvim günü yeterli bir tampon.
+    # Hafta sonu nedeniyle erken kontrol yapılması sorun değil;
+    # gerçek işlem günü yine veri üzerinden belirlenecek.
+    # --------------------------------------------------------
+
+    for kayit in kayitlar:
+
+        try:
+
+            sinyal_tarihi = datetime.strptime(
+                kayit["tarih"],
+                "%Y-%m-%d"
+            ).date()
+
+        except Exception:
+
+            continue
+
+        gun_farki = (
+            bugun - sinyal_tarihi
+        ).days
+
+        if gun_farki >= 5:
+
+            kontrol_edilecek.append(
+                kayit
+            )
+
+    if not kontrol_edilecek:
+
+        print(
+            "⏳ Henüz 5 işlem günü dolan kayıt yok."
+        )
+
+        return
+
+    print(
+        "⏱️ Kontrol edilecek kayıt:",
+        len(kontrol_edilecek)
+    )
+
+    tamamlanan = 0
+
+    # --------------------------------------------------------
+    # SADECE VADESİ GELEN KAYITLAR
+    # --------------------------------------------------------
+
+    for kayit in kontrol_edilecek:
+
+        symbol = kayit["symbol"]
+
+        try:
+
+            print(
+                f"📊 Performans kontrolü: "
+                f"{symbol} | "
+                f"{kayit['tip']}"
+            )
+
+            # ------------------------------------------------
+            # Burada sadece vadesi gelen hissenin verisi alınır.
+            # Tüm tarama listesi tekrar taranmaz.
+            # ------------------------------------------------
+
+            df = veri_al(
+                symbol,
+                "6mo"
+            )
+
+            if df is None:
+
+                print(
+                    f"⚠️ {symbol}: "
+                    "Performans verisi alınamadı."
+                )
+
+                continue
+
+            hedef = besinci_islem_gunu_bul(
+                df,
+                kayit["tarih"]
+            )
+
+            # Henüz 5. işlem günü oluşmadıysa
+            # kayıt silinmez, sonraki taramada tekrar kontrol edilir.
+
+            if hedef is None:
+
+                print(
+                    f"⏳ {symbol}: "
+                    "5. işlem günü henüz oluşmamış."
+                )
+
+                continue
+
+            sonuc_fiyati = float(
+                hedef["fiyat"]
+            )
+
+            giris_fiyati = float(
+                kayit["fiyat"]
+            )
+
+            if giris_fiyati <= 0:
+
+                print(
+                    f"⚠️ {symbol}: "
+                    "Geçersiz giriş fiyatı."
+                )
+
+                continue
+
+            performans = (
+                (
+                    sonuc_fiyati
+                    /
+                    giris_fiyati
+                )
+                - 1
+            ) * 100
+
+            mesaj = performans_mesaji_hazirla(
+                kayit,
+                hedef["tarih"],
+                sonuc_fiyati,
+                performans
+            )
+
+            if telegram_gonder(mesaj):
+
+                # ------------------------------------------------
+                # Telegram başarıyla gönderildiyse kaydı siliyoruz.
+                # Böylece aynı performans tekrar gönderilmez.
+                # ------------------------------------------------
+
+                performans_kaydi_sil(
+                    kayit
+                )
+
+                print(
+                    f"✅ {symbol}: "
+                    f"5 günlük performans gönderildi "
+                    f"({performans:+.2f}%)"
+                )
+
+            else:
+
+                print(
+                    f"⚠️ {symbol}: "
+                    "Telegram gönderilemedi. "
+                    "Kayıt korunuyor."
+                )
+
+            tamamlanan += 1
+
+        except Exception as hata:
+
+            print(
+                symbol,
+                "5 GÜNLÜK PERFORMANS HATASI:",
+                type(hata).__name__,
+                str(hata)
+            )
+
+    print(
+        "📊 Performans kontrolü tamamlandı."
+    )
+
+    print(
+        "Kontrol edilen:",
+        tamamlanan
+    )
 
 
 # ============================================================
@@ -317,7 +979,10 @@ def telegram_gonder(mesaj):
             timeout=20
         )
 
-        print("Telegram:", response.status_code)
+        print(
+            "Telegram:",
+            response.status_code
+        )
 
         if not response.ok:
 
@@ -345,7 +1010,9 @@ def telegram_gonder(mesaj):
 
 def piyasa_acik_mi():
 
-    now = datetime.now(ISTANBUL)
+    now = datetime.now(
+        ISTANBUL
+    )
 
     if now.weekday() >= 5:
         return False
@@ -396,9 +1063,13 @@ def rsi_hesapla(close):
 
     delta = close.diff()
 
-    kazanc = delta.clip(lower=0)
+    kazanc = delta.clip(
+        lower=0
+    )
 
-    kayip = -delta.clip(upper=0)
+    kayip = -delta.clip(
+        upper=0
+    )
 
     ort_kazanc = kazanc.ewm(
         alpha=1 / RSI_PERIOD,
@@ -410,7 +1081,11 @@ def rsi_hesapla(close):
         adjust=False
     ).mean()
 
-    rs = ort_kazanc / ort_kayip
+    rs = (
+        ort_kazanc
+        /
+        ort_kayip
+    )
 
     return 100 - (
         100 / (1 + rs)
@@ -430,11 +1105,14 @@ def adx_hesapla(df):
     onceki_close = close.shift(1)
 
     yukari_hareket = high.diff()
+
     asagi_hareket = -low.diff()
 
     plus_dm = yukari_hareket.where(
         (
-            yukari_hareket > asagi_hareket
+            yukari_hareket
+            >
+            asagi_hareket
         )
         &
         (
@@ -445,7 +1123,9 @@ def adx_hesapla(df):
 
     minus_dm = asagi_hareket.where(
         (
-            asagi_hareket > yukari_hareket
+            asagi_hareket
+            >
+            yukari_hareket
         )
         &
         (
@@ -457,17 +1137,27 @@ def adx_hesapla(df):
     tr1 = high - low
 
     tr2 = (
-        high - onceki_close
+        high
+        -
+        onceki_close
     ).abs()
 
     tr3 = (
-        low - onceki_close
+        low
+        -
+        onceki_close
     ).abs()
 
     true_range = (
         tr1
-        .combine(tr2, max)
-        .combine(tr3, max)
+        .combine(
+            tr2,
+            max
+        )
+        .combine(
+            tr3,
+            max
+        )
     )
 
     atr = true_range.ewm(
@@ -497,13 +1187,19 @@ def adx_hesapla(df):
         atr
     )
 
-    di_toplam = plus_di + minus_di
+    di_toplam = (
+        plus_di
+        +
+        minus_di
+    )
 
     dx = (
         100
         *
         (
-            plus_di - minus_di
+            plus_di
+            -
+            minus_di
         ).abs()
         /
         di_toplam
@@ -530,7 +1226,10 @@ def adx_gosterge(adx):
 # VERİ AL
 # ============================================================
 
-def veri_al(symbol, period="6mo"):
+def veri_al(
+    symbol,
+    period="6mo"
+):
 
     for deneme in range(
         1,
@@ -539,7 +1238,9 @@ def veri_al(symbol, period="6mo"):
 
         try:
 
-            ticker = bp.Ticker(symbol)
+            ticker = bp.Ticker(
+                symbol
+            )
 
             df = ticker.history(
                 period=period
@@ -557,7 +1258,8 @@ def veri_al(symbol, period="6mo"):
             if (
                 "429" in hata_metni
                 or
-                "Too Many Requests" in hata_metni
+                "Too Many Requests"
+                in hata_metni
             ):
 
                 bekleme = 2 ** deneme
@@ -567,7 +1269,9 @@ def veri_al(symbol, period="6mo"):
                     f"{bekleme} sn bekleniyor"
                 )
 
-                time.sleep(bekleme)
+                time.sleep(
+                    bekleme
+                )
 
                 continue
 
@@ -610,15 +1314,22 @@ def fibonacci_seviyeleri(df):
     if fib_high <= fib_low:
         return None
 
-    high_index = high_series.idxmax()
-    low_index = low_series.idxmin()
+    high_index = (
+        high_series.idxmax()
+    )
+
+    low_index = (
+        low_series.idxmin()
+    )
 
     yukselis = (
         low_index < high_index
     )
 
     aralik = (
-        fib_high - fib_low
+        fib_high
+        -
+        fib_low
     )
 
     oranlar = [
@@ -639,17 +1350,21 @@ def fibonacci_seviyeleri(df):
 
             seviye = (
                 fib_low
-                + aralik * katsayi
+                +
+                aralik * katsayi
             )
 
         else:
 
             seviye = (
                 fib_high
-                - aralik * katsayi
+                -
+                aralik * katsayi
             )
 
-        seviyeler[oran] = float(seviye)
+        seviyeler[oran] = float(
+            seviye
+        )
 
     return {
         "high": fib_high,
@@ -663,14 +1378,21 @@ def fibonacci_seviyeleri(df):
     }
 
 
-def fib_analiz(df, fiyat):
+def fib_analiz(
+    df,
+    fiyat
+):
 
-    fib = fibonacci_seviyeleri(df)
+    fib = fibonacci_seviyeleri(
+        df
+    )
 
     if fib is None:
         return None
 
-    seviyeler = fib["seviyeler"]
+    seviyeler = fib[
+        "seviyeler"
+    ]
 
     alt = []
 
@@ -704,7 +1426,9 @@ def fib_analiz(df, fiyat):
 
             kar_yuzdesi = (
                 (
-                    seviye - fiyat
+                    seviye
+                    -
+                    fiyat
                 )
                 /
                 fiyat
@@ -728,23 +1452,30 @@ def fib_analiz(df, fiyat):
         else None
     )
 
-    fib100 = seviyeler["1.000"]
+    fib100 = seviyeler[
+        "1.000"
+    ]
 
     tepe_potansiyel = (
         (
-            fib100 - fiyat
+            fib100
+            -
+            fiyat
         )
         /
         fiyat
     ) * 100
 
     fiyat_seviyesi = None
+
     en_yakin_mesafe = None
 
     for oran, seviye in seviyeler.items():
 
         mesafe = abs(
-            fiyat - seviye
+            fiyat
+            -
+            seviye
         )
 
         if (
@@ -754,6 +1485,7 @@ def fib_analiz(df, fiyat):
         ):
 
             en_yakin_mesafe = mesafe
+
             fiyat_seviyesi = oran
 
     return {
@@ -783,37 +1515,49 @@ def sinyal_gucu_hesapla(
 
     if rsi >= 70:
         puan += 20
+
     elif rsi >= 60:
         puan += 17
+
     elif rsi >= 55:
         puan += 14
+
     elif rsi > 50:
         puan += 10
 
     if adx >= 30:
         puan += 20
+
     elif adx >= 25:
         puan += 17
+
     elif adx >= 20:
         puan += 14
+
     elif adx >= 15:
         puan += 9
 
     if ema_mesafe >= 7:
         puan += 20
+
     elif ema_mesafe >= 5:
         puan += 17
+
     elif ema_mesafe >= 3:
         puan += 14
+
     else:
         puan += 8
 
     if haftalik_degisim >= 10:
         puan += 20
+
     elif haftalik_degisim >= 7:
         puan += 17
+
     elif haftalik_degisim >= 4:
         puan += 14
+
     elif haftalik_degisim > 0:
         puan += 9
 
@@ -827,10 +1571,13 @@ def sinyal_gucu_hesapla(
 
         if hacim_orani >= 2:
             puan += 20
+
         elif hacim_orani >= 1.5:
             puan += 17
+
         elif hacim_orani >= 1.0:
             puan += 14
+
         else:
             puan += 8
 
@@ -840,7 +1587,10 @@ def sinyal_gucu_hesapla(
 
     return min(
         100,
-        max(0, puan)
+        max(
+            0,
+            puan
+        )
     )
 
 
@@ -891,11 +1641,15 @@ def hisse_detaylarini_hazirla(
 
         df["BASE"] = (
             df["High"]
-            .rolling(BASE_PERIOD)
+            .rolling(
+                BASE_PERIOD
+            )
             .max()
             +
             df["Low"]
-            .rolling(BASE_PERIOD)
+            .rolling(
+                BASE_PERIOD
+            )
             .min()
         ) / 2
 
@@ -906,7 +1660,9 @@ def hisse_detaylarini_hazirla(
         )
 
         onceki = df.iloc[-2]
+
         son = df.iloc[-1]
+
         hafta_once = df.iloc[-6]
 
         bir_haftalik_degisim = (
@@ -928,22 +1684,33 @@ def hisse_detaylarini_hazirla(
         ) * 100
 
         try:
-            hacim = float(son["Volume"])
+
+            hacim = float(
+                son["Volume"]
+            )
+
         except Exception:
+
             hacim = 0.0
 
         try:
+
             ortalama_hacim_20 = float(
                 son["AVG_VOLUME_20"]
             )
+
         except Exception:
+
             ortalama_hacim_20 = 0.0
 
         try:
+
             adx = float(
                 son["ADX14"]
             )
+
         except Exception:
+
             adx = 0.0
 
         fiyat = float(
@@ -966,7 +1733,9 @@ def hisse_detaylarini_hazirla(
         if fib_sonuc is None:
             return None
 
-        stop_bilgi = fib_sonuc["stop"]
+        stop_bilgi = fib_sonuc[
+            "stop"
+        ]
 
         if stop_bilgi is None:
             return None
@@ -987,7 +1756,8 @@ def hisse_detaylarini_hazirla(
 
             "volume": hacim,
 
-            "avg_volume_20": ortalama_hacim_20,
+            "avg_volume_20":
+                ortalama_hacim_20,
 
             "ema14": ema14,
 
@@ -1009,25 +1779,39 @@ def hisse_detaylarini_hazirla(
             "stop_fib": stop_bilgi[1],
 
             "fib_levels":
-                fib_sonuc["seviyeler"],
+                fib_sonuc[
+                    "seviyeler"
+                ],
 
             "fib_low":
-                fib_sonuc["fib"]["low"],
+                fib_sonuc[
+                    "fib"
+                ]["low"],
 
             "fib_high":
-                fib_sonuc["fib"]["high"],
+                fib_sonuc[
+                    "fib"
+                ]["high"],
 
             "fib_yon":
-                fib_sonuc["fib"]["yon"],
+                fib_sonuc[
+                    "fib"
+                ]["yon"],
 
             "fiyat_fib":
-                fib_sonuc["fiyat_seviyesi"],
+                fib_sonuc[
+                    "fiyat_seviyesi"
+                ],
 
             "tepe_potansiyel":
-                fib_sonuc["tepe_potansiyel"],
+                fib_sonuc[
+                    "tepe_potansiyel"
+                ],
 
             "yakin_ust":
-                fib_sonuc["yakin_ust"]
+                fib_sonuc[
+                    "yakin_ust"
+                ]
         }
 
         sonuc["sinyal_gucu"] = (
@@ -1112,11 +1896,15 @@ def analiz_et(symbol):
 
         df["BASE"] = (
             df["High"]
-            .rolling(BASE_PERIOD)
+            .rolling(
+                BASE_PERIOD
+            )
             .max()
             +
             df["Low"]
-            .rolling(BASE_PERIOD)
+            .rolling(
+                BASE_PERIOD
+            )
             .min()
         ) / 2
 
@@ -1127,6 +1915,7 @@ def analiz_et(symbol):
         )
 
         onceki = df.iloc[-2]
+
         son = df.iloc[-1]
 
         ichimoku_sinyal = (
@@ -1286,6 +2075,7 @@ def aylik_macd_hesapla(df):
             return None
 
         onceki = aylik_macd.iloc[-2]
+
         son = aylik_macd.iloc[-1]
 
         yukari_kesisim = (
@@ -1299,7 +2089,10 @@ def aylik_macd_hesapla(df):
         )
 
         return {
-            "sinyal": bool(yukari_kesisim),
+
+            "sinyal": bool(
+                yukari_kesisim
+            ),
 
             "macd": float(
                 son["MACD"]
@@ -1387,11 +2180,15 @@ def aylik_macd_analiz_et(symbol):
         )
 
         detay["aylik_onceki_macd"] = (
-            macd_sonuc["onceki_macd"]
+            macd_sonuc[
+                "onceki_macd"
+            ]
         )
 
         detay["aylik_onceki_signal"] = (
-            macd_sonuc["onceki_signal"]
+            macd_sonuc[
+                "onceki_signal"
+            ]
         )
 
         return detay
@@ -1423,7 +2220,9 @@ def fib_satiri(
 
         potansiyel = (
             (
-                seviye - fiyat
+                seviye
+                -
+                fiyat
             )
             /
             fiyat
@@ -1440,7 +2239,9 @@ def fib_satiri(
 
         potansiyel = (
             (
-                seviye - fiyat
+                seviye
+                -
+                fiyat
             )
             /
             fiyat
@@ -1468,23 +2269,37 @@ def mesaj_hazirla(
     baslik
 ):
 
-    symbol = sonuc["symbol"]
+    symbol = sonuc[
+        "symbol"
+    ]
 
-    adx_deger = sonuc["adx14"]
+    adx_deger = sonuc[
+        "adx14"
+    ]
 
     adx_isaret = adx_gosterge(
         adx_deger
     )
 
-    fiyat = sonuc["price"]
+    fiyat = sonuc[
+        "price"
+    ]
 
-    stop = sonuc["stop"]
+    stop = sonuc[
+        "stop"
+    ]
 
-    stop_fib = sonuc["stop_fib"]
+    stop_fib = sonuc[
+        "stop_fib"
+    ]
 
-    fibler = sonuc["fib_levels"]
+    fibler = sonuc[
+        "fib_levels"
+    ]
 
-    fiyat_fib = sonuc["fiyat_fib"]
+    fiyat_fib = sonuc[
+        "fiyat_fib"
+    ]
 
     mesaj = (
 
@@ -1559,13 +2374,17 @@ def mesaj_hazirla(
 BIST100_GLOBAL = set()
 
 
-def gunluk_tarama(tarama_listesi):
+def gunluk_tarama(
+    tarama_listesi
+):
 
     print("\n====================================")
     print("🟢 GÜNLÜK TARAMA")
     print("====================================")
 
-    gonderilenler = gonderilenleri_oku()
+    gonderilenler = (
+        gonderilenleri_oku()
+    )
 
     print(
         "Bugün daha önce gönderilen:",
@@ -1585,10 +2404,12 @@ def gunluk_tarama(tarama_listesi):
     ) as executor:
 
         gelecekler = {
+
             executor.submit(
                 analiz_et,
                 symbol
             ): symbol
+
             for symbol in tarama_listesi
         }
 
@@ -1596,7 +2417,9 @@ def gunluk_tarama(tarama_listesi):
             gelecekler
         ):
 
-            symbol = gelecekler[gelecek]
+            symbol = gelecekler[
+                gelecek
+            ]
 
             try:
 
@@ -1643,7 +2466,9 @@ def gunluk_tarama(tarama_listesi):
                 )
 
     sure = (
-        datetime.now(ISTANBUL)
+        datetime.now(
+            ISTANBUL
+        )
         -
         baslangic_zamani
     ).total_seconds()
@@ -1663,17 +2488,31 @@ def gunluk_tarama(tarama_listesi):
 
     for sonuc in bulunan:
 
-        symbol = sonuc["symbol"]
+        symbol = sonuc[
+            "symbol"
+        ]
 
         mesaj = mesaj_hazirla(
             sonuc,
             "🟢 YENİ"
         )
 
-        if telegram_gonder(mesaj):
+        if telegram_gonder(
+            mesaj
+        ):
 
             basariyla_gonderilenler.add(
                 symbol
+            )
+
+            # =================================================
+            # SADECE TELEGRAM BAŞARILIYSA 5 GÜNLÜK TAKİBE AL
+            # =================================================
+
+            performans_kaydi_ekle(
+                symbol,
+                sonuc["price"],
+                "GUNLUK"
             )
 
     if basariyla_gonderilenler:
@@ -1702,19 +2541,33 @@ def gunluk_tarama(tarama_listesi):
 # AYLIK MACD TARAMA
 # ============================================================
 
-def aylik_macd_tarama(tarama_listesi):
+def aylik_macd_tarama(
+    tarama_listesi
+):
 
     print("\n====================================")
     print("🔴 AYLIK MACD TARAMASI")
     print("====================================")
 
-    print("📊 MACD: 12 / 26")
-    print("📈 Signal: 9")
+    print(
+        "📊 MACD: 12 / 26"
+    )
+
+    print(
+        "📈 Signal: 9"
+    )
+
     print(
         "🔴 ŞART: MACD Level aşağıdan yukarı Signal kesişimi"
     )
-    print("⏱️ Ay sonu beklenmeyecek.")
-    print("📅 İçinde bulunulan aylık mum kullanılacak.")
+
+    print(
+        "⏱️ Ay sonu beklenmeyecek."
+    )
+
+    print(
+        "📅 İçinde bulunulan aylık mum kullanılacak."
+    )
 
     aylik_gonderilenler = (
         aylik_gonderilenleri_oku()
@@ -1738,10 +2591,12 @@ def aylik_macd_tarama(tarama_listesi):
     ) as executor:
 
         aylik_gelecekler = {
+
             executor.submit(
                 aylik_macd_analiz_et,
                 symbol
             ): symbol
+
             for symbol in tarama_listesi
         }
 
@@ -1803,7 +2658,9 @@ def aylik_macd_tarama(tarama_listesi):
                 )
 
     aylik_sure = (
-        datetime.now(ISTANBUL)
+        datetime.now(
+            ISTANBUL
+        )
         -
         aylik_baslangic
     ).total_seconds()
@@ -1823,17 +2680,31 @@ def aylik_macd_tarama(tarama_listesi):
 
     for sonuc in aylik_bulunan:
 
-        symbol = sonuc["symbol"]
+        symbol = sonuc[
+            "symbol"
+        ]
 
         mesaj = mesaj_hazirla(
             sonuc,
             "🔴 AYLIK"
         )
 
-        if telegram_gonder(mesaj):
+        if telegram_gonder(
+            mesaj
+        ):
 
             aylik_basariyla_gonderilenler.add(
                 symbol
+            )
+
+            # =================================================
+            # SADECE TELEGRAM BAŞARILIYSA 5 GÜNLÜK TAKİBE AL
+            # =================================================
+
+            performans_kaydi_ekle(
+                symbol,
+                sonuc["price"],
+                "AYLIK"
             )
 
     if aylik_basariyla_gonderilenler:
@@ -1862,13 +2733,22 @@ def aylik_macd_tarama(tarama_listesi):
 # TEK TARAMA
 # ============================================================
 #
-# aylik_yap=True  → Günlük + Aylık
-# aylik_yap=False → Sadece Günlük
+# ÖNEMLİ:
 #
-# GitHub Actions bunu belirleyecek.
+# 5 günlük performans kontrolü burada ilk olarak çalışır.
+#
+# Ancak:
+#
+# - bütün hisseler tekrar taranmaz
+# - sadece vadesi gelen kayıtlar kontrol edilir
+#
+# Ana günlük tarama mantığı aynıdır.
+#
 # ============================================================
 
-def tek_tarama(aylik_yap=False):
+def tek_tarama(
+    aylik_yap=False
+):
 
     global BIST100_GLOBAL
 
@@ -1886,10 +2766,24 @@ def tek_tarama(aylik_yap=False):
 
     print(
         "📌 Aylık MACD:",
-        "EVET" if aylik_yap else "HAYIR"
+        "EVET"
+        if aylik_yap
+        else "HAYIR"
     )
 
     print("################################################")
+
+    # ========================================================
+    # 5 GÜNLÜK PERFORMANS
+    #
+    # Bu bölüm sadece vadesi gelen kayıtları kontrol eder.
+    # ========================================================
+
+    bes_gunluk_performans_kontrol()
+
+    # ========================================================
+    # PİYASA
+    # ========================================================
 
     if not piyasa_acik_mi():
 
@@ -1920,7 +2814,9 @@ def tek_tarama(aylik_yap=False):
     BIST100_GLOBAL = bist100
 
     tarama_listesi = sorted(
-        bist100 | ANA_PAZAR
+        bist100
+        |
+        ANA_PAZAR
     )
 
     print(
@@ -1952,7 +2848,6 @@ def tek_tarama(aylik_yap=False):
     # SADECE:
     # 09:50 ilk çalışma
     # 14:00 ilk çalışma
-    #
     # ========================================================
 
     if aylik_yap:
@@ -1980,14 +2875,12 @@ def tek_tarama(aylik_yap=False):
 # PROGRAMI ÇALIŞTIR
 # ============================================================
 #
-# ARTIK BURADA scheduler() YOK.
+# GitHub Actions:
 #
-# GitHub Actions her çalıştırmada:
-#
-# Aylık gerekiyorsa:
 # AYLIK_TARAMA=true python main.py
 #
-# Normal günlük:
+# veya
+#
 # AYLIK_TARAMA=false python main.py
 #
 # ============================================================
@@ -2020,6 +2913,11 @@ if __name__ == "__main__":
         "AKTİF"
         if aylik_yap
         else "PASİF"
+    )
+
+    print(
+        "📊 5 Günlük Performans:",
+        "AKTİF"
     )
 
     tek_tarama(
