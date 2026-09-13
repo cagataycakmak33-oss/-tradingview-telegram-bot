@@ -100,7 +100,9 @@ jobs:
 
           CURRENT_TIME=$(TZ=Europe/Istanbul date +"%H:%M")
 
-          if [[ "$CURRENT_TIME" < "$AFTERNOON_START" ]]; then
+          echo "🇹🇷 Türkiye saati: $CURRENT_TIME"
+
+          if [ "$CURRENT_TIME" \< "$AFTERNOON_START" ]; then
 
             MODE="SABAH"
 
@@ -123,8 +125,6 @@ jobs:
 
             NOW=$(TZ=Europe/Istanbul date +"%H:%M")
 
-            CURRENT_SECONDS=$(TZ=Europe/Istanbul date +"%s")
-
             echo ""
             echo "=========================================="
             echo "🕐 Türkiye saati: $NOW"
@@ -135,9 +135,9 @@ jobs:
             # SABAH DÖNEMİ
             # =================================================
 
-            if [[ "$MODE" == "SABAH" ]]; then
+            if [ "$MODE" = "SABAH" ]; then
 
-              if [[ "$NOW" < "$MORNING_START" ]]; then
+              if [ "$NOW" \< "$MORNING_START" ]; then
 
                 echo "⏳ 09:50 bekleniyor..."
 
@@ -147,7 +147,7 @@ jobs:
 
               fi
 
-              if [[ "$NOW" >= "$AFTERNOON_START" ]]; then
+              if [ "$NOW" \> "$AFTERNOON_START" ] || [ "$NOW" = "$AFTERNOON_START" ]; then
 
                 echo "🔵 14:00 dönemi başladı."
 
@@ -165,9 +165,9 @@ jobs:
             # ÖĞLEDEN SONRA
             # =================================================
 
-            if [[ "$MODE" == "OGLE" ]]; then
+            if [ "$MODE" = "OGLE" ]; then
 
-              if [[ "$NOW" < "$AFTERNOON_START" ]]; then
+              if [ "$NOW" \< "$AFTERNOON_START" ]; then
 
                 echo "⏳ 14:00 bekleniyor..."
 
@@ -177,7 +177,7 @@ jobs:
 
               fi
 
-              if [[ "$NOW" >= "$END_TIME" ]]; then
+              if [ "$NOW" \> "$END_TIME" ] || [ "$NOW" = "$END_TIME" ]; then
 
                 echo "18:00 oldu."
                 echo "Öğleden sonra tarama durduruluyor."
@@ -192,7 +192,8 @@ jobs:
             # SABAH 14:00 KONTROLÜ
             # =================================================
 
-            if [[ "$MODE" == "SABAH" ]] && [[ "$NOW" >= "$AFTERNOON_START" ]]; then
+            if [ "$MODE" = "SABAH" ] && \
+               { [ "$NOW" \> "$AFTERNOON_START" ] || [ "$NOW" = "$AFTERNOON_START" ]; }; then
 
               echo "14:00 oldu."
               echo "Sabah tarama dönemi kapatılıyor."
@@ -208,7 +209,7 @@ jobs:
             # 18:00 KONTROLÜ
             # =================================================
 
-            if [[ "$NOW" >= "$END_TIME" ]]; then
+            if [ "$NOW" \> "$END_TIME" ] || [ "$NOW" = "$END_TIME" ]; then
 
               echo "18:00 oldu."
               echo "Tarama döngüsü kapatılıyor."
@@ -221,7 +222,7 @@ jobs:
             # TARAMA
             # =================================================
 
-            if [[ "$FIRST_RUN" == "true" ]]; then
+            if [ "$FIRST_RUN" = "true" ]; then
 
               echo ""
               echo "🔴 İLK TARAMA"
@@ -247,7 +248,8 @@ jobs:
 
             NOW=$(TZ=Europe/Istanbul date +"%H:%M")
 
-            if [[ "$MODE" == "SABAH" ]] && [[ "$NOW" >= "$AFTERNOON_START" ]]; then
+            if [ "$MODE" = "SABAH" ] && \
+               { [ "$NOW" \> "$AFTERNOON_START" ] || [ "$NOW" = "$AFTERNOON_START" ]; }; then
 
               echo ""
               echo "🔵 14:00 dönemi geldi."
@@ -259,7 +261,7 @@ jobs:
 
             fi
 
-            if [[ "$NOW" >= "$END_TIME" ]]; then
+            if [ "$NOW" \> "$END_TIME" ] || [ "$NOW" = "$END_TIME" ]; then
 
               echo ""
               echo "18:00 oldu."
@@ -280,13 +282,13 @@ jobs:
 
             WAIT_MINUTES=$((5 - REMAINDER))
 
-            if [[ "$WAIT_MINUTES" -eq 5 ]]; then
+            if [ "$WAIT_MINUTES" -eq 5 ]; then
               WAIT_MINUTES=0
             fi
 
             WAIT_SECONDS=$((WAIT_MINUTES * 60 - 10#$CURRENT_SECOND))
 
-            if [[ "$WAIT_SECONDS" -le 0 ]]; then
+            if [ "$WAIT_SECONDS" -le 0 ]; then
               WAIT_SECONDS=5
             fi
 
