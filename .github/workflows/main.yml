@@ -1,10 +1,10 @@
 name: Ticaret Botu Calistir
 
-on:
+"on":
 workflow_dispatch:
 schedule:
-- cron: '45 6 * * 1-5'
-- cron: '0 11 * * 1-5'
+- cron: "45 6 * * 1-5"
+- cron: "0 11 * * 1-5"
 
 permissions:
 contents: write
@@ -16,7 +16,6 @@ timeout-minutes: 290
 
 ```
 steps:
-
   - name: Kodu al
     uses: actions/checkout@v4
     with:
@@ -25,7 +24,7 @@ steps:
   - name: Python 3.11 kur
     uses: actions/setup-python@v5
     with:
-      python-version: '3.11'
+      python-version: "3.11"
 
   - name: Gereksinimleri kur
     run: |
@@ -47,10 +46,7 @@ steps:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     run: |
-
       set -e
-
-      INTERVAL=300
 
       MORNING_START=590
       AFTERNOON_START=840
@@ -59,36 +55,19 @@ steps:
       echo "===================================="
       echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
       echo "===================================="
-      echo "Sabah: 09:50 - 14:00"
-      echo "Ogleden sonra: 14:00 - 18:00"
-      echo "Tarama araligi: 5 dakika"
-      echo "===================================="
 
       START_HOUR=$(TZ=Europe/Istanbul date +%H)
       START_MINUTE=$(TZ=Europe/Istanbul date +%M)
-
       START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
-      echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
+      echo "Workflow baslangic: ${START_HOUR}:${START_MINUTE}"
 
       if [ "$START_TOTAL" -lt "$AFTERNOON_START" ]; then
-
         MODE="SABAH"
-
-        echo "===================================="
-        echo "SABAH TARAMA MODU"
-        echo "09:50 - 14:00"
-        echo "===================================="
-
+        echo "SABAH MODU: 09:50 - 14:00"
       else
-
         MODE="OGLE"
-
-        echo "===================================="
-        echo "OGLEDEN SONRA TARAMA MODU"
-        echo "14:00 - 18:00"
-        echo "===================================="
-
+        echo "OGLE MODU: 14:00 - 18:00"
       fi
 
       FIRST_RUN=true
@@ -97,14 +76,11 @@ steps:
 
         HOUR=$(TZ=Europe/Istanbul date +%H)
         MINUTE=$(TZ=Europe/Istanbul date +%M)
-
         TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
         echo ""
-        echo "===================================="
         echo "Turkiye saati: ${HOUR}:${MINUTE}"
         echo "Mod: $MODE"
-        echo "===================================="
 
         if [ "$MODE" = "SABAH" ]; then
 
@@ -115,13 +91,11 @@ steps:
           fi
 
           if [ "$TOTAL_MINUTES" -ge "$AFTERNOON_START" ]; then
-            echo "14:00 oldu. Sabah workflow'u kapatiliyor."
+            echo "14:00 oldu. Sabah workflow'u bitiyor."
             break
           fi
 
-        fi
-
-        if [ "$MODE" = "OGLE" ]; then
+        else
 
           if [ "$TOTAL_MINUTES" -lt "$AFTERNOON_START" ]; then
             echo "14:00 bekleniyor..."
@@ -130,7 +104,7 @@ steps:
           fi
 
           if [ "$TOTAL_MINUTES" -ge "$END_TIME" ]; then
-            echo "18:00 oldu. Ogleden sonra workflow'u kapatiliyor."
+            echo "18:00 oldu. Workflow bitiyor."
             break
           fi
 
@@ -138,10 +112,7 @@ steps:
 
         if [ "$FIRST_RUN" = "true" ]; then
 
-          echo "===================================="
-          echo "ILK TARAMA"
-          echo "GUNLUK + AYLIK MACD"
-          echo "===================================="
+          echo "ILK TARAMA: GUNLUK + AYLIK MACD"
 
           AYLIK_TARAMA=true python main.py
 
@@ -149,10 +120,7 @@ steps:
 
         else
 
-          echo "===================================="
-          echo "NORMAL TARAMA"
-          echo "SADECE GUNLUK"
-          echo "===================================="
+          echo "NORMAL TARAMA: SADECE GUNLUK"
 
           AYLIK_TARAMA=false python main.py
 
@@ -160,11 +128,10 @@ steps:
 
         HOUR=$(TZ=Europe/Istanbul date +%H)
         MINUTE=$(TZ=Europe/Istanbul date +%M)
-
         TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
         if [ "$MODE" = "SABAH" ] && [ "$TOTAL_MINUTES" -ge "$AFTERNOON_START" ]; then
-          echo "14:00 donemi geldi. Sabah workflow'u sonlandiriliyor."
+          echo "14:00 oldu. Sabah workflow'u kapatiliyor."
           break
         fi
 
@@ -189,20 +156,17 @@ steps:
           WAIT_SECONDS=5
         fi
 
-        echo "Bir sonraki tarama icin $WAIT_SECONDS saniye bekleniyor..."
+        echo "Sonraki tarama icin $WAIT_SECONDS saniye bekleniyor..."
 
         sleep "$WAIT_SECONDS"
 
       done
 
-      echo "===================================="
       echo "TARAMA DONGUSU TAMAMLANDI"
-      echo "===================================="
 
   - name: Kayit dosyalarini kaydet
     if: always()
     run: |
-
       git config user.name "github-actions[bot]"
       git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -210,13 +174,9 @@ steps:
       git add gonderilen_aylik_hisseler.txt || true
 
       if git diff --cached --quiet; then
-
         echo "Kaydedilecek degisiklik yok."
-
       else
-
         git commit -m "Bot gonderim kayitlarini guncelle"
         git push
-
       fi
 ```
