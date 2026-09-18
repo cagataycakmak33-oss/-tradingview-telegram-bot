@@ -4,12 +4,10 @@ name: Trading Bot Calistir
 on:
   schedule:
     # Sabah: Türkiye saatiyle 09:50
-    - cron: "50 9 * * 1-5"
-      timezone: "Europe/Istanbul"
+    - cron: "50 6 * * 1-5"
 
     # Öğleden sonra: Türkiye saatiyle 14:00
-    - cron: "0 14 * * 1-5"
-      timezone: "Europe/Istanbul"
+    - cron: "0 11 * * 1-5"
 
   workflow_dispatch:
 
