@@ -15,8 +15,6 @@ on:
 permissions:
   contents: write
 
-# Sabah ve öğleden sonra çalışmaları birbirini bekletmesin.
-# Manuel çalıştırmalar da ayrı bir grup kullanır.
 concurrency:
   group: trading-bot-${{ github.event.schedule || github.run_id }}
   cancel-in-progress: false
@@ -31,20 +29,37 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
+
+      # ============================================================
+      # KODU INDIR
+      # ============================================================
+
       - name: Kodu indir
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # ============================================================
+      # PYTHON
+      # ============================================================
 
       - name: Python kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # ============================================================
+      # PAKETLER
+      # ============================================================
+
       - name: Paketleri yukle
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      # ============================================================
+      # 5 DAKIKALIK TARAMA
+      # ============================================================
 
       - name: Botu 5 dakikada bir calistir
         run: |
@@ -65,7 +80,7 @@ jobs:
           echo "========================================"
 
           # ========================================================
-          # HANGİ MODDA ÇALIŞACAĞINI BELİRLE
+          # MOD BELIRLE
           # ========================================================
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
@@ -85,7 +100,8 @@ jobs:
             fi
 
           else
-            # Manuel calistirmada mevcut Turkiye saatine gore karar ver.
+
+            # Manuel calistirma
             if [ "$START_TOTAL" -lt "$AFTERNOON_START" ]; then
               MODE="SABAH"
               echo "MANUEL CALISTIRMA -> SABAH MODU"
@@ -101,9 +117,18 @@ jobs:
               echo "Tarama yapilmayacak."
               exit 0
             fi
+
           fi
 
+          # ========================================================
+          # ILK TARAMA
+          # ========================================================
+
           FIRST_RUN=true
+
+          # ========================================================
+          # ANA DONGU
+          # ========================================================
 
           while true; do
 
@@ -199,7 +224,7 @@ jobs:
             fi
 
             # ======================================================
-            # BIR SONRAKI 5 DAKIKALIK NOKTAYA BEKLE
+            # SONRAKI 5 DAKIKALIK NOKTAYA BEKLE
             # ======================================================
 
             CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
@@ -231,6 +256,10 @@ jobs:
           echo "TARAMA DONGUSU TAMAMLANDI"
           echo "========================================"
 
+      # ============================================================
+      # GONDERILEN HISSELERI KAYDET
+      # ============================================================
+
       - name: Gonderilen hisseleri kaydet
         if: always()
         run: |
@@ -246,4 +275,3 @@ jobs:
             git commit -m "Bot gonderim kayitlarini guncelle"
             git push
           fi
-```
