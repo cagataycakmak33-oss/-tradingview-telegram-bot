@@ -1,21 +1,24 @@
-
 name: Trading Bot Calistir
 
 on:
   schedule:
     # Sabah: Türkiye saatiyle 09:50
-    - cron: "50 6 * * 1-5"
+    - cron: "50 9 * * 1-5"
+      timezone: "Europe/Istanbul"
 
     # Öğleden sonra: Türkiye saatiyle 14:00
-    - cron: "0 11 * * 1-5"
+    - cron: "0 14 * * 1-5"
+      timezone: "Europe/Istanbul"
 
   workflow_dispatch:
 
 permissions:
   contents: write
 
+# Sabah ve öğleden sonra çalışmaları birbirini bekletmesin.
+# Manuel çalıştırmalar da ayrı bir grup kullanır.
 concurrency:
-  group: trading-bot
+  group: trading-bot-${{ github.event.schedule || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -55,14 +58,49 @@ jobs:
           START_MINUTE=$(TZ=Europe/Istanbul date +%M)
           START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
+          echo "========================================"
           echo "Workflow baslangic: ${START_HOUR}:${START_MINUTE}"
+          echo "GitHub event: ${{ github.event_name }}"
+          echo "Schedule: ${{ github.event.schedule }}"
+          echo "========================================"
 
-          if [ "$START_TOTAL" -lt "$AFTERNOON_START" ]; then
-            MODE="SABAH"
-            echo "SABAH MODU: 09:50 - 14:00"
+          # ========================================================
+          # HANGİ MODDA ÇALIŞACAĞINI BELİRLE
+          # ========================================================
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+
+            if [ "${{ github.event.schedule }}" = "50 9 * * 1-5" ]; then
+              MODE="SABAH"
+              echo "SABAH MODU: 09:50 - 14:00"
+
+            elif [ "${{ github.event.schedule }}" = "0 14 * * 1-5" ]; then
+              MODE="OGLE"
+              echo "OGLE MODU: 14:00 - 18:05"
+
+            else
+              echo "Bilinmeyen schedule."
+              echo "Workflow sonlandiriliyor."
+              exit 0
+            fi
+
           else
-            MODE="OGLE"
-            echo "OGLE MODU: 14:00 - 18:05"
+            # Manuel calistirmada mevcut Turkiye saatine gore karar ver.
+            if [ "$START_TOTAL" -lt "$AFTERNOON_START" ]; then
+              MODE="SABAH"
+              echo "MANUEL CALISTIRMA -> SABAH MODU"
+              echo "09:50 - 14:00"
+
+            elif [ "$START_TOTAL" -lt "$END_TIME" ]; then
+              MODE="OGLE"
+              echo "MANUEL CALISTIRMA -> OGLE MODU"
+              echo "14:00 - 18:05"
+
+            else
+              echo "Manuel calistirma saat disinda."
+              echo "Tarama yapilmayacak."
+              exit 0
+            fi
           fi
 
           FIRST_RUN=true
@@ -74,7 +112,14 @@ jobs:
             TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
             echo ""
+            echo "========================================"
             echo "Turkiye saati: ${HOUR}:${MINUTE}"
+            echo "Mod: ${MODE}"
+            echo "========================================"
+
+            # ======================================================
+            # SABAH
+            # ======================================================
 
             if [ "$MODE" = "SABAH" ]; then
 
@@ -88,6 +133,10 @@ jobs:
                 echo "14:00 oldu. Sabah workflow'u bitiyor."
                 break
               fi
+
+            # ======================================================
+            # OGLEDEN SONRA
+            # ======================================================
 
             else
 
@@ -104,21 +153,36 @@ jobs:
 
             fi
 
+            # ======================================================
+            # TARAMA
+            # ======================================================
+
             BASLANGIC=$(date +%s)
 
             if [ "$FIRST_RUN" = "true" ]; then
+
               echo "ILK TARAMA: GUNLUK + AYLIK MACD"
+
               AYLIK_TARAMA=true python main.py
+
               FIRST_RUN=false
+
             else
+
               echo "NORMAL TARAMA: SADECE GUNLUK"
+
               AYLIK_TARAMA=false python main.py
+
             fi
 
             BITIS=$(date +%s)
             GECEN=$((BITIS - BASLANGIC))
 
             echo "Tarama suresi: ${GECEN} saniye"
+
+            # ======================================================
+            # TARAMA SONRASI SAAT KONTROLU
+            # ======================================================
 
             HOUR=$(TZ=Europe/Istanbul date +%H)
             MINUTE=$(TZ=Europe/Istanbul date +%M)
@@ -133,6 +197,10 @@ jobs:
               echo "18:05 oldu. Workflow kapatiliyor."
               break
             fi
+
+            # ======================================================
+            # BIR SONRAKI 5 DAKIKALIK NOKTAYA BEKLE
+            # ======================================================
 
             CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
             CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
@@ -158,7 +226,10 @@ jobs:
 
           done
 
+          echo ""
+          echo "========================================"
           echo "TARAMA DONGUSU TAMAMLANDI"
+          echo "========================================"
 
       - name: Gonderilen hisseleri kaydet
         if: always()
@@ -175,3 +246,4 @@ jobs:
             git commit -m "Bot gonderim kayitlarini guncelle"
             git push
           fi
+```
