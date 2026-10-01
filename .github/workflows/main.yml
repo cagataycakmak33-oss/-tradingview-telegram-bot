@@ -1,4 +1,4 @@
-name: Trading Bot Calistir
+name: Ticaret Botu Calistir
 
 on:
   schedule:
@@ -10,6 +10,7 @@ on:
     - cron: "0 14 * * 1-5"
       timezone: "Europe/Istanbul"
 
+  # Manuel çalıştırma
   workflow_dispatch:
 
 permissions:
@@ -31,7 +32,7 @@ jobs:
     steps:
 
       # ============================================================
-      # KODU INDIR
+      # KODU İNDİR
       # ============================================================
 
       - name: Kodu indir
@@ -43,7 +44,7 @@ jobs:
       # PYTHON
       # ============================================================
 
-      - name: Python kur
+      - name: Python kurulumu
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -58,10 +59,11 @@ jobs:
           pip install -r requirements.txt
 
       # ============================================================
-      # 5 DAKIKALIK TARAMA
+      # 5 DAKİKALIK TARAMA
       # ============================================================
 
       - name: Botu 5 dakikada bir calistir
+        shell: bash
         run: |
           set -e
 
@@ -73,106 +75,141 @@ jobs:
           START_MINUTE=$(TZ=Europe/Istanbul date +%M)
           START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
+          DAY_OF_WEEK=$(TZ=Europe/Istanbul date +%u)
+
           echo "========================================"
-          echo "Workflow baslangic: ${START_HOUR}:${START_MINUTE}"
-          echo "GitHub event: ${{ github.event_name }}"
-          echo "Schedule: ${{ github.event.schedule }}"
+          echo "İş akışı başlangıç: ${START_HOUR}:${START_MINUTE}"
+          echo "GitHub etkinliği: ${{ github.event_name }}"
+          echo "Program: ${{ github.event.schedule }}"
+          echo "Haftanın günü: ${DAY_OF_WEEK}"
           echo "========================================"
 
           # ========================================================
-          # MOD BELIRLE
+          # HAFTA SONU KONTROLÜ
+          # 1 = Pazartesi ... 5 = Cuma
+          # 6 = Cumartesi, 7 = Pazar
+          # ========================================================
+
+          if [ "$DAY_OF_WEEK" -gt 5 ]; then
+            echo "Hafta sonu. Bot çalıştırılmayacak."
+            exit 0
+          fi
+
+          # ========================================================
+          # MOD BELİRLE
           # ========================================================
 
           if [ "${{ github.event_name }}" = "schedule" ]; then
 
             if [ "${{ github.event.schedule }}" = "50 9 * * 1-5" ]; then
+
               MODE="SABAH"
+
               echo "SABAH MODU: 09:50 - 14:00"
 
             elif [ "${{ github.event.schedule }}" = "0 14 * * 1-5" ]; then
+
               MODE="OGLE"
+
               echo "OGLE MODU: 14:00 - 18:05"
 
             else
-              echo "Bilinmeyen schedule."
-              echo "Workflow sonlandiriliyor."
+
+              echo "Bilinmeyen zamanlama."
+              echo "İş akışı sonlandırılıyor."
               exit 0
+
             fi
 
           else
 
-            # Manuel calistirma
+            # ======================================================
+            # MANUEL ÇALIŞTIRMA
+            # ======================================================
+
             if [ "$START_TOTAL" -lt "$AFTERNOON_START" ]; then
+
               MODE="SABAH"
-              echo "MANUEL CALISTIRMA -> SABAH MODU"
-              echo "09:50 - 14:00"
+
+              echo "MANUEL ÇALIŞTIRMA -> SABAH MODU"
+              echo "Çalışma aralığı: 09:50 - 14:00"
 
             elif [ "$START_TOTAL" -lt "$END_TIME" ]; then
+
               MODE="OGLE"
-              echo "MANUEL CALISTIRMA -> OGLE MODU"
-              echo "14:00 - 18:05"
+
+              echo "MANUEL ÇALIŞTIRMA -> OGLE MODU"
+              echo "Çalışma aralığı: 14:00 - 18:05"
 
             else
-              echo "Manuel calistirma saat disinda."
-              echo "Tarama yapilmayacak."
+
+              echo "Manuel çalıştırma zamanı çalışma aralığı dışında."
+              echo "Tarama yapılmayacak."
               exit 0
+
             fi
 
           fi
 
           # ========================================================
-          # ILK TARAMA
+          # İLK TARAMA
+          # İlk taramada günlük + aylık MACD
           # ========================================================
 
           FIRST_RUN=true
 
           # ========================================================
-          # ANA DONGU
+          # ANA DÖNGÜ
           # ========================================================
 
           while true; do
 
             HOUR=$(TZ=Europe/Istanbul date +%H)
             MINUTE=$(TZ=Europe/Istanbul date +%M)
+
             TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
             echo ""
             echo "========================================"
-            echo "Turkiye saati: ${HOUR}:${MINUTE}"
+            echo "Türkiye saati: ${HOUR}:${MINUTE}"
             echo "Mod: ${MODE}"
             echo "========================================"
 
             # ======================================================
-            # SABAH
+            # SABAH MODU
             # ======================================================
 
             if [ "$MODE" = "SABAH" ]; then
 
+              # 09:50'dan önceyse bekle
               if [ "$TOTAL_MINUTES" -lt "$MORNING_START" ]; then
                 echo "09:50 bekleniyor..."
                 sleep 30
                 continue
               fi
 
+              # 14:00 olduysa sabah workflow'u bitir
               if [ "$TOTAL_MINUTES" -ge "$AFTERNOON_START" ]; then
-                echo "14:00 oldu. Sabah workflow'u bitiyor."
+                echo "14:00 oldu. Sabah iş akışı bitiriliyor."
                 break
               fi
 
             # ======================================================
-            # OGLEDEN SONRA
+            # ÖĞLEDEN SONRA MODU
             # ======================================================
 
             else
 
+              # 14:00'dan önceyse bekle
               if [ "$TOTAL_MINUTES" -lt "$AFTERNOON_START" ]; then
                 echo "14:00 bekleniyor..."
                 sleep 30
                 continue
               fi
 
+              # 18:05 olduysa workflow'u bitir
               if [ "$TOTAL_MINUTES" -ge "$END_TIME" ]; then
-                echo "18:05 oldu. Ogleden sonra workflow'u bitiyor."
+                echo "18:05 oldu. Öğleden sonra iş akışı bitiriliyor."
                 break
               fi
 
@@ -182,11 +219,11 @@ jobs:
             # TARAMA
             # ======================================================
 
-            BASLANGIC=$(date +%s)
+            SCAN_START=$(date +%s)
 
             if [ "$FIRST_RUN" = "true" ]; then
 
-              echo "ILK TARAMA: GUNLUK + AYLIK MACD"
+              echo "İLK TARAMA: GÜNLÜK + AYLIK MACD"
 
               AYLIK_TARAMA=true python main.py
 
@@ -194,37 +231,38 @@ jobs:
 
             else
 
-              echo "NORMAL TARAMA: SADECE GUNLUK"
+              echo "NORMAL TARAMA: SADECE GÜNLÜK"
 
               AYLIK_TARAMA=false python main.py
 
             fi
 
-            BITIS=$(date +%s)
-            GECEN=$((BITIS - BASLANGIC))
+            SCAN_END=$(date +%s)
+            ELAPSED=$((SCAN_END - SCAN_START))
 
-            echo "Tarama suresi: ${GECEN} saniye"
+            echo "Tarama süresi: ${ELAPSED} saniye"
 
             # ======================================================
-            # TARAMA SONRASI SAAT KONTROLU
+            # TARAMA SONRASI SAAT KONTROLÜ
             # ======================================================
 
             HOUR=$(TZ=Europe/Istanbul date +%H)
             MINUTE=$(TZ=Europe/Istanbul date +%M)
+
             TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
             if [ "$MODE" = "SABAH" ] && [ "$TOTAL_MINUTES" -ge "$AFTERNOON_START" ]; then
-              echo "14:00 oldu. Sabah workflow'u kapatiliyor."
+              echo "14:00 oldu. Sabah iş akışı kapatılıyor."
               break
             fi
 
             if [ "$TOTAL_MINUTES" -ge "$END_TIME" ]; then
-              echo "18:05 oldu. Workflow kapatiliyor."
+              echo "18:05 oldu. İş akışı kapatılıyor."
               break
             fi
 
             # ======================================================
-            # SONRAKI 5 DAKIKALIK NOKTAYA BEKLE
+            # SONRAKİ 5 DAKİKALIK NOKTAYA BEKLE
             # ======================================================
 
             CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
@@ -233,19 +271,21 @@ jobs:
             CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
             CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
 
-            NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
+            REMAINDER=$((CURRENT_MINUTE_NUM % 5))
 
-            if [ "$NEXT_WAIT" -eq 5 ]; then
-              NEXT_WAIT=0
+            if [ "$REMAINDER" -eq 0 ]; then
+              MINUTES_TO_WAIT=5
+            else
+              MINUTES_TO_WAIT=$((5 - REMAINDER))
             fi
 
-            WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+            WAIT_SECONDS=$((MINUTES_TO_WAIT * 60 - CURRENT_SECOND_NUM))
 
             if [ "$WAIT_SECONDS" -le 0 ]; then
               WAIT_SECONDS=5
             fi
 
-            echo "Sonraki tarama icin ${WAIT_SECONDS} saniye bekleniyor..."
+            echo "Sonraki 5 dakikalık tarama için ${WAIT_SECONDS} saniye bekleniyor..."
 
             sleep "$WAIT_SECONDS"
 
@@ -253,15 +293,16 @@ jobs:
 
           echo ""
           echo "========================================"
-          echo "TARAMA DONGUSU TAMAMLANDI"
+          echo "TARAMA DÖNGÜSÜ TAMAMLANDI"
           echo "========================================"
 
       # ============================================================
-      # GONDERILEN HISSELERI KAYDET
+      # GÖNDERİLEN HİSSELERİ KAYDET
       # ============================================================
 
       - name: Gonderilen hisseleri kaydet
         if: always()
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -270,8 +311,8 @@ jobs:
           git add gonderilen_aylik_hisseler.txt || true
 
           if git diff --cached --quiet; then
-            echo "Kaydedilecek degisiklik yok."
+            echo "Kaydedilecek değişiklik yok."
           else
-            git commit -m "Bot gonderim kayitlarini guncelle"
+            git commit -m "Bot gonderim kayıtlarını guncelle"
             git push
           fi
