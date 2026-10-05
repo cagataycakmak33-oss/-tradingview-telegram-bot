@@ -30,20 +30,37 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
+
+      # ==========================================
+      # KODLARI AL
+      # ==========================================
+
       - name: Kodları al
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # ==========================================
+      # PYTHON
+      # ==========================================
 
       - name: Python kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # ==========================================
+      # PAKETLER
+      # ==========================================
+
       - name: Gerekli paketleri kur
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      # ==========================================
+      # TARAMA DÖNGÜSÜ
+      # ==========================================
 
       - name: Tarama döngüsünü başlat
         shell: bash
@@ -80,16 +97,17 @@ jobs:
           echo "=============================================="
 
           # ==========================================
-          # HAFTA SONU KONTROLÜ
+          # HAFTA SONU
           # ==========================================
 
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
-            echo "Hafta sonu. Bot çalıştırılmayacak."
+            echo "Hafta sonu."
+            echo "Bot çalıştırılmayacak."
             exit 0
           fi
 
           # ==========================================
-          # ÇALIŞMA MODUNU BELİRLE
+          # SABAH MODU
           # ==========================================
 
           if [ "$CURRENT_TOTAL" -ge "$MORNING_START" ] && [ "$CURRENT_TOTAL" -lt "$AFTERNOON_START" ]; then
@@ -101,6 +119,10 @@ jobs:
             echo "        09:55 - 14:00"
             echo "=============================================="
 
+          # ==========================================
+          # ÖĞLEDEN SONRA MODU
+          # ==========================================
+
           elif [ "$CURRENT_TOTAL" -ge "$AFTERNOON_START" ] && [ "$CURRENT_TOTAL" -lt "$END_TIME" ]; then
 
             MODE="OGLE"
@@ -109,6 +131,10 @@ jobs:
             echo "     ÖĞLEDEN SONRA TARAMA MODU"
             echo "        14:00 - 18:00"
             echo "=============================================="
+
+          # ==========================================
+          # AKTİF SAAT DEĞİL
+          # ==========================================
 
           else
 
@@ -120,10 +146,8 @@ jobs:
           fi
 
           # ==========================================
-          # İLK TARAMA
+          # TARAMA DÖNGÜSÜ
           # ==========================================
-
-          FIRST_RUN=true
 
           while true; do
 
@@ -140,7 +164,7 @@ jobs:
             echo "=============================================="
 
             # ==========================================
-            # ÇALIŞMA SAATİ KONTROLÜ
+            # SABAH BİTİŞ KONTROLÜ
             # ==========================================
 
             if [ "$MODE" = "SABAH" ]; then
@@ -151,7 +175,13 @@ jobs:
                 break
               fi
 
-            elif [ "$MODE" = "OGLE" ]; then
+            fi
+
+            # ==========================================
+            # ÖĞLEDEN SONRA BİTİŞ KONTROLÜ
+            # ==========================================
+
+            if [ "$MODE" = "OGLE" ]; then
 
               if [ "$CURRENT_TOTAL" -ge "$END_TIME" ]; then
                 echo "18:00 oldu."
@@ -170,26 +200,19 @@ jobs:
             echo ">>> $(TZ=Europe/Istanbul date '+%H:%M:%S')"
             echo ""
 
-            if [ "$FIRST_RUN" = true ]; then
+            python main.py
 
-              echo "İlk tarama: main.py çalıştırılıyor."
-              python main.py
-
-              FIRST_RUN=false
-
-            else
-
-              echo "5 dakikalık tarama: main.py çalıştırılıyor."
-              python main.py
-
-            fi
+            echo ""
+            echo ">>> TARAMA TAMAMLANDI"
+            echo ">>> $(TZ=Europe/Istanbul date '+%H:%M:%S')"
+            echo ""
 
             # ==========================================
-            # SONRAKİ 5 DAKİKALIK ZAMANA KADAR BEKLE
+            # SONRAKİ 5 DAKİKALIK ZAMANI HESAPLA
             # ==========================================
 
-            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
             CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
 
             MINUTE=$((10#$CURRENT_MINUTE))
             SECOND=$((10#$CURRENT_SECOND))
@@ -208,9 +231,7 @@ jobs:
               WAIT_SECONDS=1
             fi
 
-            echo ""
             echo "Sonraki tarama yaklaşık $WAIT_SECONDS saniye sonra."
-            echo "Sonraki hedef: 5 dakikalık periyot."
             echo ""
 
             sleep "$WAIT_SECONDS"
