@@ -2,11 +2,11 @@ name: Ticaret Botu Calistir
 
 on:
   schedule:
-    # Sabah: Türkiye saati 09:55
+    # Sabah: Türkiye saatiyle 09:55
     - cron: "55 9 * * 1-5"
       timezone: "Europe/Istanbul"
 
-    # Öğleden sonra: Türkiye saati 14:00
+    # Öğleden sonra: Türkiye saatiyle 14:00
     - cron: "0 14 * * 1-5"
       timezone: "Europe/Istanbul"
 
@@ -22,223 +22,236 @@ concurrency:
 jobs:
   bot:
     runs-on: ubuntu-latest
+
     timeout-minutes: 260
 
     env:
-      TZ: Europe/Istanbul
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      TZ: Europe/Istanbul
 
     steps:
 
-      # ==========================================
-      # KODLARI AL
-      # ==========================================
-
-      - name: Kodları al
+      # ==========================================================
+      # REPO'YU AL
+      # ==========================================================
+      - name: Repoyu al
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ==========================================
+      # ==========================================================
       # PYTHON
-      # ==========================================
-
-      - name: Python kur
+      # ==========================================================
+      - name: Python 3.11 kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ==========================================
-      # PAKETLER
-      # ==========================================
-
-      - name: Gerekli paketleri kur
+      # ==========================================================
+      # GEREKLİ PAKETLER
+      # ==========================================================
+      - name: Gereksinimleri yukle
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ==========================================
-      # TARAMA DÖNGÜSÜ
-      # ==========================================
-
-      - name: Tarama döngüsünü başlat
+      # ==========================================================
+      # 5 DAKİKALIK TİCARET BOTU
+      # ==========================================================
+      - name: Botu 5 dakikada bir calistir
         shell: bash
         run: |
           set -e
 
-          # ==========================================
-          # ZAMAN AYARLARI
-          # ==========================================
+          echo "===================================="
+          echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
+          echo "===================================="
 
-          MORNING_START=595       # 09:55
-          AFTERNOON_START=840     # 14:00
-          END_TIME=1080           # 18:00
+          START_HOUR=$(TZ=Europe/Istanbul date +%H)
+          START_MINUTE=$(TZ=Europe/Istanbul date +%M)
+          START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
-          INTERVAL=300            # 5 dakika
+          echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
 
-          # ==========================================
-          # TÜRKİYE SAATİ
-          # ==========================================
+          # ======================================================
+          # SABAH WORKFLOW
+          # 09:55 - 14:00
+          # ======================================================
+          if [ "$START_TOTAL" -lt 840 ]; then
 
-          CURRENT_HOUR=$(TZ=Europe/Istanbul date +%H)
-          CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-          CURRENT_TOTAL=$((10#$CURRENT_HOUR * 60 + 10#$CURRENT_MINUTE))
+            echo ""
+            echo "===================================="
+            echo "SABAH TARAMA MODU"
+            echo "09:55 - 14:00"
+            echo "===================================="
 
-          DAY_OF_WEEK=$(TZ=Europe/Istanbul date +%u)
+            while true; do
 
-          echo "=============================================="
-          echo "       5 DAKİKALIK TİCARET BOTU"
-          echo "=============================================="
-          echo "Türkiye saati: $(TZ=Europe/Istanbul date '+%Y-%m-%d %H:%M:%S')"
-          echo "Haftanın günü: $DAY_OF_WEEK"
-          echo "GitHub etkinliği: ${{ github.event_name }}"
-          echo "Program: ${{ github.event.schedule }}"
-          echo "=============================================="
+              HOUR=$(TZ=Europe/Istanbul date +%H)
+              MINUTE=$(TZ=Europe/Istanbul date +%M)
+              TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
-          # ==========================================
-          # HAFTA SONU
-          # ==========================================
+              echo ""
+              echo "Türkiye saati: ${HOUR}:${MINUTE}"
 
-          if [ "$DAY_OF_WEEK" -gt 5 ]; then
-            echo "Hafta sonu."
-            echo "Bot çalıştırılmayacak."
-            exit 0
-          fi
+              # 09:55'ten önceyse bekle
+              if [ "$TOTAL_MINUTES" -lt 595 ]; then
+                echo "09:55 bekleniyor..."
+                sleep 30
+                continue
+              fi
 
-          # ==========================================
-          # SABAH MODU
-          # ==========================================
+              # 14:00 geldiğinde SABAH WORKFLOW kapanır
+              if [ "$TOTAL_MINUTES" -ge 840 ]; then
+                echo ""
+                echo "14:00 oldu."
+                echo "Sabah tarama workflow'u kapatiliyor."
+                break
+              fi
 
-          if [ "$CURRENT_TOTAL" -ge "$MORNING_START" ] && [ "$CURRENT_TOTAL" -lt "$AFTERNOON_START" ]; then
+              echo ""
+              echo "===================================="
+              echo "Yeni sabah taramasi: ${HOUR}:${MINUTE}"
+              echo "===================================="
 
-            MODE="SABAH"
+              BASLANGIC=$(date +%s)
 
-            echo "=============================================="
-            echo "        SABAH TARAMA MODU"
-            echo "        09:55 - 14:00"
-            echo "=============================================="
+              python main.py
 
-          # ==========================================
-          # ÖĞLEDEN SONRA MODU
-          # ==========================================
+              BITIS=$(date +%s)
+              GECEN=$((BITIS - BASLANGIC))
 
-          elif [ "$CURRENT_TOTAL" -ge "$AFTERNOON_START" ] && [ "$CURRENT_TOTAL" -lt "$END_TIME" ]; then
+              echo ""
+              echo "Tarama suresi: ${GECEN} saniye"
 
-            MODE="OGLE"
+              CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
 
-            echo "=============================================="
-            echo "     ÖĞLEDEN SONRA TARAMA MODU"
-            echo "        14:00 - 18:00"
-            echo "=============================================="
+              CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
+              CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
 
-          # ==========================================
-          # AKTİF SAAT DEĞİL
-          # ==========================================
+              NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
 
+              if [ "$NEXT_WAIT" -eq 5 ]; then
+                NEXT_WAIT=0
+              fi
+
+              WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+
+              if [ "$WAIT_SECONDS" -le 0 ]; then
+                WAIT_SECONDS=5
+              fi
+
+              echo ""
+              echo "Bir sonraki sabah taramasi icin ${WAIT_SECONDS} saniye bekleniyor..."
+
+              sleep "$WAIT_SECONDS"
+
+            done
+
+          # ======================================================
+          # ÖĞLEDEN SONRA WORKFLOW
+          # 14:00 - 18:00
+          # ======================================================
           else
 
-            echo "Şu anda aktif tarama saati değil."
-            echo "Türkiye saati: $(TZ=Europe/Istanbul date '+%H:%M:%S')"
-            echo "Bot kapatılıyor."
-            exit 0
+            echo ""
+            echo "===================================="
+            echo "OGLEDEN SONRA TARAMA MODU"
+            echo "14:00 - 18:00"
+            echo "===================================="
+
+            while true; do
+
+              HOUR=$(TZ=Europe/Istanbul date +%H)
+              MINUTE=$(TZ=Europe/Istanbul date +%M)
+              TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
+
+              echo ""
+              echo "Türkiye saati: ${HOUR}:${MINUTE}"
+
+              # 14:00'ten önceyse bekle
+              if [ "$TOTAL_MINUTES" -lt 840 ]; then
+                echo "14:00 bekleniyor..."
+                sleep 30
+                continue
+              fi
+
+              # 18:00 geldiğinde ÖĞLEDEN SONRA WORKFLOW kapanır
+              if [ "$TOTAL_MINUTES" -ge 1080 ]; then
+                echo ""
+                echo "18:00 oldu."
+                echo "Ogleden sonra tarama workflow'u kapatiliyor."
+                break
+              fi
+
+              echo ""
+              echo "===================================="
+              echo "Yeni ogleden sonra taramasi: ${HOUR}:${MINUTE}"
+              echo "===================================="
+
+              BASLANGIC=$(date +%s)
+
+              python main.py
+
+              BITIS=$(date +%s)
+              GECEN=$((BITIS - BASLANGIC))
+
+              echo ""
+              echo "Tarama suresi: ${GECEN} saniye"
+
+              CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
+              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
+
+              CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
+              CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
+
+              NEXT_WAIT=$((5 - (CURRENT_MINUTE_NUM % 5)))
+
+              if [ "$NEXT_WAIT" -eq 5 ]; then
+                NEXT_WAIT=0
+              fi
+
+              WAIT_SECONDS=$((NEXT_WAIT * 60 - CURRENT_SECOND_NUM))
+
+              if [ "$WAIT_SECONDS" -le 0 ]; then
+                WAIT_SECONDS=5
+              fi
+
+              echo ""
+              echo "Bir sonraki ogleden sonra taramasi icin ${WAIT_SECONDS} saniye bekleniyor..."
+
+              sleep "$WAIT_SECONDS"
+
+            done
 
           fi
 
-          # ==========================================
-          # TARAMA DÖNGÜSÜ
-          # ==========================================
-
-          while true; do
-
-            CURRENT_HOUR=$(TZ=Europe/Istanbul date +%H)
-            CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
-
-            CURRENT_TOTAL=$((10#$CURRENT_HOUR * 60 + 10#$CURRENT_MINUTE))
-
-            echo ""
-            echo "=============================================="
-            echo "Türkiye saati: ${CURRENT_HOUR}:${CURRENT_MINUTE}:${CURRENT_SECOND}"
-            echo "Mod: $MODE"
-            echo "=============================================="
-
-            # ==========================================
-            # SABAH BİTİŞ KONTROLÜ
-            # ==========================================
-
-            if [ "$MODE" = "SABAH" ]; then
-
-              if [ "$CURRENT_TOTAL" -ge "$AFTERNOON_START" ]; then
-                echo "14:00 oldu."
-                echo "Sabah tarama döngüsü tamamlandı."
-                break
-              fi
-
-            fi
-
-            # ==========================================
-            # ÖĞLEDEN SONRA BİTİŞ KONTROLÜ
-            # ==========================================
-
-            if [ "$MODE" = "OGLE" ]; then
-
-              if [ "$CURRENT_TOTAL" -ge "$END_TIME" ]; then
-                echo "18:00 oldu."
-                echo "Öğleden sonra tarama döngüsü tamamlandı."
-                break
-              fi
-
-            fi
-
-            # ==========================================
-            # TARAMA
-            # ==========================================
-
-            echo ""
-            echo ">>> YENİ TARAMA BAŞLIYOR"
-            echo ">>> $(TZ=Europe/Istanbul date '+%H:%M:%S')"
-            echo ""
-
-            python main.py
-
-            echo ""
-            echo ">>> TARAMA TAMAMLANDI"
-            echo ">>> $(TZ=Europe/Istanbul date '+%H:%M:%S')"
-            echo ""
-
-            # ==========================================
-            # SONRAKİ 5 DAKİKALIK ZAMANI HESAPLA
-            # ==========================================
-
-            CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-            CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
-
-            MINUTE=$((10#$CURRENT_MINUTE))
-            SECOND=$((10#$CURRENT_SECOND))
-
-            REMAINDER=$((MINUTE % 5))
-
-            if [ "$REMAINDER" -eq 0 ]; then
-              WAIT_MINUTES=5
-            else
-              WAIT_MINUTES=$((5 - REMAINDER))
-            fi
-
-            WAIT_SECONDS=$((WAIT_MINUTES * 60 - SECOND))
-
-            if [ "$WAIT_SECONDS" -lt 1 ]; then
-              WAIT_SECONDS=1
-            fi
-
-            echo "Sonraki tarama yaklaşık $WAIT_SECONDS saniye sonra."
-            echo ""
-
-            sleep "$WAIT_SECONDS"
-
-          done
-
           echo ""
-          echo "=============================================="
-          echo "       TARAMA DÖNGÜSÜ TAMAMLANDI"
-          echo "=============================================="
+          echo "===================================="
+          echo "TARAMA DONGUSU TAMAMLANDI"
+          echo "===================================="
+
+      # ==========================================================
+      # GÖNDERİLEN HİSSELERİ KAYDET
+      # ==========================================================
+      - name: Gonderilen hisseleri kaydet
+        run: |
+          if [ -f gonderilen_hisseler.txt ]; then
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            git add gonderilen_hisseler.txt
+
+            if git diff --cached --quiet; then
+              echo "Yeni gonderilen hisse yok."
+            else
+              git commit -m "Günlük gonderilen hisseleri guncelle"
+              git push
+            fi
+
+          else
+            echo "gonderilen_hisseler.txt bulunamadı."
+          fi
