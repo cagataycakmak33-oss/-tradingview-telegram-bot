@@ -32,36 +32,36 @@ jobs:
 
     steps:
 
-      # ==========================================================
-      # REPOYU AL
-      # ==========================================================
+      # ==================================================
+      # REPO
+      # ==================================================
 
       - name: Repoyu al
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ==========================================================
+      # ==================================================
       # PYTHON
-      # ==========================================================
+      # ==================================================
 
       - name: Python 3.11 kurulumu
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ==========================================================
-      # GEREKLİ PAKETLER
-      # ==========================================================
+      # ==================================================
+      # GEREKSINIMLER
+      # ==================================================
 
       - name: Gereksinimleri yukle
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ==========================================================
-      # 5 DAKİKALIK TİCARET BOTU
-      # ==========================================================
+      # ==================================================
+      # 5 DAKIKALIK TICARET BOTU
+      # ==================================================
 
       - name: Botu 5 dakikada bir calistir
         shell: bash
@@ -72,28 +72,20 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "=========================================="
 
-          echo "GitHub event: ${{ github.event_name }}"
-          echo "Schedule: ${{ github.event.schedule }}"
-
-          # ========================================================
-          # TÜRKİYE SAATİ
-          # ========================================================
-
           START_HOUR=$(TZ=Europe/Istanbul date +%H)
           START_MINUTE=$(TZ=Europe/Istanbul date +%M)
-
           START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
 
           echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
           echo "Workflow baslangic dakikasi: ${START_TOTAL}"
 
-          # ========================================================
-          # HAFTA SONU KORUMASI
-          # ========================================================
-
           DAY_OF_WEEK=$(TZ=Europe/Istanbul date +%u)
 
           echo "Haftanin gunu: ${DAY_OF_WEEK}"
+
+          # ==================================================
+          # HAFTA SONU KONTROLU
+          # ==================================================
 
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
             echo ""
@@ -104,38 +96,33 @@ jobs:
             exit 0
           fi
 
-          # ========================================================
-          # 18:00 SONRASI KORUMA
-          # ========================================================
+          # ==================================================
+          # 18:00'DAN SONRA CALISMA
+          # ==================================================
 
           if [ "$START_TOTAL" -gt 1080 ]; then
             echo ""
             echo "=========================================="
             echo "TARAMA SAATI DISINDA"
             echo "=========================================="
-            echo "Türkiye saati: ${START_HOUR}:${START_MINUTE}"
+            echo "Turkiye saati: ${START_HOUR}:${START_MINUTE}"
             echo "18:00 sonrasi oldugu icin tarama yapilmayacak."
             exit 0
           fi
 
-          # ========================================================
-          # SABAH WORKFLOW'U
-          #
+          # ==================================================
+          # SABAH WORKFLOW
           # 09:55 - 14:00
           #
-          # Tarama saatleri:
           # 09:55
           # 10:00
           # 10:05
           # ...
           # 13:55
-          #
-          # 14:00'da sabah workflow'u kapanir.
-          # 14:00 taramasini OGLEDEN SONRA workflow'u yapar.
-          # Böylece 14:00 iki kere taranmaz.
-          # ========================================================
+          # 14:00 -> KAPANIS
+          # ==================================================
 
-          if [ "$START_TOTAL" -lt 840 ]; then
+          if [ "$START_TOTAL" -ge 595 ] && [ "$START_TOTAL" -lt 840 ]; then
 
             echo ""
             echo "=========================================="
@@ -152,36 +139,24 @@ jobs:
               TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
               echo ""
-              echo "Türkiye saati: ${HOUR}:${MINUTE}:${SECOND}"
+              echo "Turkiye saati: ${HOUR}:${MINUTE}:${SECOND}"
 
-              # ----------------------------------------------------
-              # 09:55'ten önceyse bekle
-              # ----------------------------------------------------
-
-              if [ "$TOTAL_MINUTES" -lt 595 ]; then
-                echo "09:55 bekleniyor..."
-                sleep 30
-                continue
-              fi
-
-              # ----------------------------------------------------
-              # 14:00 geldiyse sabah workflow'u kapanir.
-              # ----------------------------------------------------
+              # ------------------------------------------
+              # 14:00 GELDIYSE SABAH WORKFLOW BITIR
+              # ------------------------------------------
 
               if [ "$TOTAL_MINUTES" -ge 840 ]; then
-
                 echo ""
                 echo "=========================================="
                 echo "14:00 OLDU"
-                echo "SABAH TARAMA MODU TAMAMLANDI"
+                echo "SABAH TARAMA WORKFLOW'U TAMAMLANDI"
                 echo "=========================================="
-
                 break
               fi
 
-              # ----------------------------------------------------
+              # ------------------------------------------
               # TARAMA
-              # ----------------------------------------------------
+              # ------------------------------------------
 
               echo ""
               echo "------------------------------------------"
@@ -198,28 +173,29 @@ jobs:
               echo ""
               echo "Tarama suresi: ${ELAPSED} saniye"
 
-              # ----------------------------------------------------
-              # TARAMA SONRASI SAAT KONTROLÜ
-              # ----------------------------------------------------
+              # ------------------------------------------
+              # TARAMA SONRASI SAATI TEKRAR KONTROL ET
+              # ------------------------------------------
 
               CURRENT_HOUR=$(TZ=Europe/Istanbul date +%H)
               CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
-
               CURRENT_TOTAL=$((10#$CURRENT_HOUR * 60 + 10#$CURRENT_MINUTE))
 
+              # 14:00 olduysa yeni tarama yapma
               if [ "$CURRENT_TOTAL" -ge 840 ]; then
-
                 echo ""
-                echo "14:00 sinirina ulasildi."
-                echo "Sabah workflow'u kapatiliyor."
-
+                echo "=========================================="
+                echo "14:00 SINIRINA ULASILDI"
+                echo "SABAH WORKFLOW'U KAPATILIYOR"
+                echo "=========================================="
                 break
               fi
 
-              # ----------------------------------------------------
-              # BİR SONRAKİ 5 DAKİKAYA HİZALAN
-              # ----------------------------------------------------
+              # ------------------------------------------
+              # SONRAKI 5 DAKIKALIK ZAMANA BEKLE
+              # ------------------------------------------
+
+              CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
 
               CURRENT_MINUTE_NUM=$((10#$CURRENT_MINUTE))
               CURRENT_SECOND_NUM=$((10#$CURRENT_SECOND))
@@ -242,26 +218,23 @@ jobs:
               sleep "$WAIT_SECONDS"
 
             done
-
           fi
 
-          # ========================================================
-          # ÖĞLEDEN SONRA WORKFLOW'U
-          #
+          # ==================================================
+          # OGLEDEN SONRA WORKFLOW
           # 14:00 - 18:00
           #
-          # Tarama saatleri:
           # 14:00
           # 14:05
           # 14:10
           # ...
           # 17:55
-          # 18:00  <-- KESİN SON TARAMA
-          # ========================================================
+          # 18:00 -> SON TARAMA
+          # SONRA KAPANIR
+          # ==================================================
 
           CURRENT_HOUR=$(TZ=Europe/Istanbul date +%H)
           CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-
           CURRENT_TOTAL=$((10#$CURRENT_HOUR * 60 + 10#$CURRENT_MINUTE))
 
           if [ "$CURRENT_TOTAL" -ge 840 ] && [ "$CURRENT_TOTAL" -le 1080 ]; then
@@ -281,47 +254,27 @@ jobs:
               TOTAL_MINUTES=$((10#$HOUR * 60 + 10#$MINUTE))
 
               echo ""
-              echo "Türkiye saati: ${HOUR}:${MINUTE}:${SECOND}"
+              echo "Turkiye saati: ${HOUR}:${MINUTE}:${SECOND}"
 
-              # ----------------------------------------------------
-              # 14:00'dan önceyse bekle
-              # ----------------------------------------------------
-
-              if [ "$TOTAL_MINUTES" -lt 840 ]; then
-                echo "14:00 bekleniyor..."
-                sleep 30
-                continue
-              fi
-
-              # ----------------------------------------------------
-              # 18:00'dan SONRA geldiyse cik.
+              # ------------------------------------------
+              # 18:00'DAN SONRA ARTIK TARAMA YOK
               #
-              # Dikkat:
-              # 18:00 tam olarak GELDİĞİNDE burada çıkmıyoruz.
-              # Önce python main.py çalışacak.
-              # ----------------------------------------------------
+              # DİKKAT:
+              # 18:00 TAM OLARAK TARANIR.
+              # ------------------------------------------
 
               if [ "$TOTAL_MINUTES" -gt 1080 ]; then
-
                 echo ""
                 echo "=========================================="
                 echo "18:00 GECTI"
                 echo "OGLEDEN SONRA TARAMA TAMAMLANDI"
                 echo "=========================================="
-
                 break
               fi
 
-              # ----------------------------------------------------
+              # ------------------------------------------
               # TARAMA
-              #
-              # 14:00
-              # 14:05
-              # 14:10
-              # ...
-              # 17:55
-              # 18:00
-              # ----------------------------------------------------
+              # ------------------------------------------
 
               echo ""
               echo "------------------------------------------"
@@ -338,33 +291,26 @@ jobs:
               echo ""
               echo "Tarama suresi: ${ELAPSED} saniye"
 
-              # ----------------------------------------------------
-              # TARAMA SONRASI SAAT
-              # ----------------------------------------------------
+              # ------------------------------------------
+              # 18:00 TARAMASI YAPILDIYSA BITIR
+              # ------------------------------------------
 
               CURRENT_HOUR=$(TZ=Europe/Istanbul date +%H)
               CURRENT_MINUTE=$(TZ=Europe/Istanbul date +%M)
-
               CURRENT_TOTAL=$((10#$CURRENT_HOUR * 60 + 10#$CURRENT_MINUTE))
 
-              # ----------------------------------------------------
-              # 18:00 TARAMASI TAMAMLANDIYSA BİTİR
-              # ----------------------------------------------------
-
               if [ "$CURRENT_TOTAL" -ge 1080 ]; then
-
                 echo ""
                 echo "=========================================="
                 echo "18:00 TARAMASI TAMAMLANDI"
                 echo "BUGUNKU TARAMA TAMAMLANDI"
                 echo "=========================================="
-
                 break
               fi
 
-              # ----------------------------------------------------
-              # BİR SONRAKİ 5 DAKİKAYA HİZALAN
-              # ----------------------------------------------------
+              # ------------------------------------------
+              # SONRAKI 5 DAKIKALIK ZAMANA BEKLE
+              # ------------------------------------------
 
               CURRENT_SECOND=$(TZ=Europe/Istanbul date +%S)
 
@@ -389,21 +335,16 @@ jobs:
               sleep "$WAIT_SECONDS"
 
             done
-
           fi
-
-          # ========================================================
-          # GÜNÜN SONU
-          # ========================================================
 
           echo ""
           echo "=========================================="
           echo "TARAMA DONGUSU TAMAMLANDI"
           echo "=========================================="
 
-      # ==========================================================
-      # GÖNDERİLEN HİSSELERİ KAYDET
-      # ==========================================================
+      # ==================================================
+      # GONDERILEN HISSELERI KAYDET
+      # ==================================================
 
       - name: Gonderilen hisseleri kaydet
         shell: bash
@@ -423,7 +364,5 @@ jobs:
             fi
 
           else
-
             echo "gonderilen_hisseler.txt bulunamadi."
-
           fi
