@@ -1,15 +1,12 @@
-
 name: Ticaret Botu Çalışır
 
 on:
   schedule:
-    # Sabah oturumu: Türkiye saatiyle 09:50
-    - cron: "50 9 * * 1-5"
-      timezone: "Europe/Istanbul"
+    # 1. Parça (Sabah Seansı): Hafta içi TSİ 09:50 -> UTC 06:50 yapar
+    - cron: "50 6 * * 1-5"
 
-    # Öğleden sonra oturumu: Türkiye saatiyle 14:00
-    - cron: "0 14 * * 1-5"
-      timezone: "Europe/Istanbul"
+    # 2. Parça (Öğleden Sonra Seansı): Hafta içi TSİ 14:00 -> UTC 11:00 yapar
+    - cron: "0 11 * * 1-5"
 
   workflow_dispatch:
 
@@ -56,6 +53,7 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "=========================================="
 
+          # 10# eklenerek 08 ve 09 gibi saatlerin Bash'i çökertmesi kesin olarak engellendi
           START_HOUR=$(date +%H)
           START_MINUTE=$(date +%M)
           START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
@@ -63,54 +61,52 @@ jobs:
 
           echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
           echo "Haftanin gunu: ${DAY_OF_WEEK}"
-          echo "Tetikleme: ${{ github.event_name }}"
-          echo "Tarife: ${{ github.event.schedule }}"
 
-          # Hafta sonu calisma.
+          # Hafta sonu çalışmasını engelle (1=Pazartesi, 5=Cuma)
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
             echo "Hafta sonu. Bot calistirilmayacak."
             exit 0
           fi
 
-          # 18:00 son tarama baslangicidir.
-          # 18:00 sonrasinda yeni bir tarama baslatma.
+          # Akşam 18:00'den sonra yeni bir oturum başlamasın (18 * 60 = 1080)
           if [ "$START_TOTAL" -gt 1080 ]; then
             echo "Tarama saatleri disinda. Bot kapatiliyor."
             exit 0
           fi
 
-          # Oturum secimi.
+          # Tetiklenme saatine göre botun hangi modda çalışacağını seçiyoruz (14:00 = 840 dakika)
           if [ "$START_TOTAL" -lt 840 ]; then
             MODE="morning"
             END_TOTAL=840
             echo "SABAH TARAMA MODU: 09:50 - 14:00"
           else
             MODE="afternoon"
-            END_TOTAL=1085
-            echo "OGLEDEN SONRA TARAMA MODU: 14:00 - 18:05"
+            END_TOTAL=1080
+            echo "OGLEDEN SONRA TARAMA MODU: 14:00 - 18:00"
           fi
 
           while true; do
             NOW_HOUR=$(date +%H)
             NOW_MINUTE=$(date +%M)
             NOW_SECOND=$(date +%S)
+            # Döngü içindeki bu satıra da çökme koruması (10#) uygulandı
             NOW_TOTAL=$((10#$NOW_HOUR * 60 + 10#$NOW_MINUTE))
 
-            # Sabah oturumu 14:00'te biter.
+            # Sabah oturumu bitiş kontrolü (Saat 14:00 olduysa kapat)
             if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge 840 ]; then
-              echo "14:00 oldu. Sabah oturumu kapatiliyor."
+              echo "Saat 14:00 oldu. Sabah oturumu kapatiliyor."
               break
             fi
 
-            # 18:05'te yeni tarama baslatmadan cik.
-            if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-              echo "18:05 oldu. Ogleden sonra oturumu kapatiliyor."
+            # Öğleden sonra oturumu bitiş kontrolü (Saat 18:00 olduysa kapat)
+            if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -ge 1080 ]; then
+              echo "Saat 18:00 oldu. Ogleden sonra oturumu kapatiliyor."
               break
             fi
 
-            # Sabah workflow'u erken baslarsa 09:50'yi bekle.
+            # Eğer sabah workflow'u GitHub yoğunluğundan erken başlarsa 09:50'yi bekle
             if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -lt 590 ]; then
-              echo "09:50 bekleniyor..."
+              echo "09:50 seansı bekleniyor..."
               sleep 30
               continue
             fi
@@ -126,32 +122,32 @@ jobs:
 
             echo "Tarama suresi: $((SCAN_END - SCAN_START)) saniye"
 
-            # Tarama sonrasinda seans sinirini kontrol et.
+            # Tarama bittikten sonra zamanı anlık olarak yeniden kontrol et
             NOW_HOUR=$(date +%H)
             NOW_MINUTE=$(date +%M)
             NOW_TOTAL=$((10#$NOW_HOUR * 60 + 10#$NOW_MINUTE))
 
             if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge 840 ]; then
-              echo "Sabah oturumu tamamlandi."
+              echo "Sabah oturumu seans sonunda tamamlandi."
               break
             fi
 
-            if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -ge 1085 ]; then
-              echo "18:05 oldu. Ogleden sonra oturumu tamamlandi."
+            if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -ge 1080 ]; then
+              echo "Ogleden sonra oturumu seans sonunda tamamlandi."
               break
             fi
 
-            # Sonraki 5 dakikalik saat sinirina kadar bekle.
+            # Sonraki tam 5. dakikaya kadar hassas bekleme yap (Örn: 10:05, 10:10)
             CURRENT_EPOCH=$(date +%s)
             NEXT_EPOCH=$(( (CURRENT_EPOCH / 300 + 1) * 300 ))
             WAIT_SECONDS=$((NEXT_EPOCH - CURRENT_EPOCH))
 
-            echo "Bir sonraki tarama icin ${WAIT_SECONDS} saniye bekleniyor..."
+            echo "Bir sonraki tarama seansi icin ${WAIT_SECONDS} saniye bekleniyor..."
             sleep "$WAIT_SECONDS"
           done
 
           echo "=========================================="
-          echo "TARAMA DONGUSU TAMAMLANDI"
+          echo "OTURUM TARAMA DÖNGÜSÜ TAMAMLANDI"
           echo "=========================================="
 
       - name: Gonderilen hisseleri kaydet
@@ -164,7 +160,7 @@ jobs:
           fi
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@://github.com"
 
           git add gonderilen_hisseler.txt
 
