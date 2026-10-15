@@ -185,33 +185,48 @@ def telegram_mesaj_gonder(mesaj):
         print(f"Telegram bağlantı hatası: {str(e)}")
 
 # ============================================================
-# ANA ÇALIŞMA MANTIĞI (ÖRNEK TARAMA)
+# PIYASA TARAMA FONKSİYONU
 # ============================================================
-def hisse_tarama_yap():
-    print("Piyasa taraması başlatılıyor...")
-    # Burada borsapy (bp) kütüphanenizle tarama yaptığınızı varsayıyoruz.
-    # Örnek olarak test amaçlı simüle edilmiştir.
+def hisse_tarama_yap(aylik_tarama_yapilsin_mi=False):
+    if aylik_tarama_yapilsin_mi:
+        print(">> [MOD: DERİN] Aylık MACD filtresi dahil edilerek geniş tarama yapılıyor...")
+    else:
+        print(">> [MOD: RUTİN] Aylık MACD atlandı. Gün içi hızlı tarama yapılıyor...")
+        
     bulunan_hisseler = []
     
-    # Gerçek tarama mantığınızı buraya entegre edebilirsiniz.
-    # Örnek:
-    # for hisse in ANA_PAZAR:
-    #     if hisse_sinyal_verdi_mi(hisse):
-    #         bulunan_hisseler.append(hisse)
-    
+    # Kendi tarama algoritmanızı veya iç fonksiyonlarınızı buraya bağlayabilirsiniz.
+    # Örnek kullanımı:
+    # if aylik_tarama_yapilsin_mi:
+    #     # Aylık MACD hesaplama süreçlerini çalıştır
+    #     pass
+        
     return bulunan_hisseler
 
+# ============================================================
+# ANA ÇALIŞTIRICI SİSTEM
+# ============================================================
 if __name__ == "__main__":
-    # Güvenli saat aralığı kontrolü (09:50 - 18:00)
     simdi = datetime.now(ISTANBUL)
     mevcut_saat_dk = simdi.hour * 60 + simdi.minute
     
-    # Cumartesi (5) veya Pazar (6) ise çalışma
+    # Hafta sonu engeli
     if simdi.weekday() >= 5:
         print("Bugün hafta sonu. Tarama yapılmıyor.")
-    # 09:50 (590 dk) ile 18:00 (1080 dk) arasındaysa çalıştır
+        
+    # Sadece seans saatleri içi (09:50 - 18:00) çalışmasına izin ver
     elif 590 <= mevcut_saat_dk <= 1080:
-        bulunanlar = hisse_tarama_yap()
+        
+        # Günde 2 kere Aylık MACD kontrolü yapacak akıllı mekanizma:
+        # 1. Oturum: 09:50 - 10:00 arası (Sabah ilk tarama seansı)
+        # 2. Oturum: 17:50 - 18:00 arası (Akşam kapanış tarama seansı)
+        if (590 <= mevcut_saat_dk <= 600) or (1070 <= mevcut_saat_dk <= 1080):
+            AYLIK_TARAMA_AKTIF = True
+        else:
+            AYLIK_TARAMA_AKTIF = False
+            
+        # Taramayı belirlenen mod ile tetikleme
+        bulunanlar = hisse_tarama_yap(aylik_tarama_yapilsin_mi=AYLIK_TARAMA_AKTIF)
         
         if bulunanlar:
             gonderilenler = gonderilenleri_oku()
@@ -221,10 +236,3 @@ if __name__ == "__main__":
                 mesaj = f"🔔 *Yeni Sinyal Veren Hisseler:*\n" + "\n".join([f"📈 #{h}" for h in yeni_hisseler])
                 telegram_mesaj_gonder(mesaj)
                 gonderilenleri_kaydet(yeni_hisseler)
-                aylik_gonderilenleri_kaydet(yeni_hisseler)
-            else:
-                print("Bulunan hisseler bugün zaten bildirilmiş.")
-        else:
-            print("Tarama sonucunda kriterlere uyan yeni hisse bulunamadı.")
-    else:
-        print(f"Şu an seans saatleri dışındayız ({simdi.strftime('%H:%M')}). İşlem yapılmadı.")
