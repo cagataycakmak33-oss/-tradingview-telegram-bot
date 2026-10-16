@@ -53,13 +53,16 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "=========================================="
 
+          # Sistem saat dilimini Türkiye olarak Bash seviyesinde kesinleştiriyoruz
+          export TZ="Europe/Istanbul"
+
           # 10# eklenerek 08 ve 09 gibi saatlerin Bash'i çökertmesi kesin olarak engellendi
           START_HOUR=$(date +%H)
           START_MINUTE=$(date +%M)
           START_TOTAL=$((10#$START_HOUR * 60 + 10#$START_MINUTE))
           DAY_OF_WEEK=$(date +%u)
 
-          echo "Workflow baslangic saati: ${START_HOUR}:${START_MINUTE}"
+          echo "Workflow baslangic saati (TSİ): ${START_HOUR}:${START_MINUTE}"
           echo "Haftanin gunu: ${DAY_OF_WEEK}"
 
           # Hafta sonu çalışmasını engelle (1=Pazartesi, 5=Cuma)
@@ -89,7 +92,6 @@ jobs:
             NOW_HOUR=$(date +%H)
             NOW_MINUTE=$(date +%M)
             NOW_SECOND=$(date +%S)
-            # Döngü içindeki bu satıra da çökme koruması (10#) uygulandı
             NOW_TOTAL=$((10#$NOW_HOUR * 60 + 10#$NOW_MINUTE))
 
             # Sabah oturumu bitiş kontrolü (Saat 14:00 olduysa kapat)
@@ -104,9 +106,9 @@ jobs:
               break
             fi
 
-            # Eğer sabah workflow'u GitHub yoğunluğundan erken başlarsa 09:50'yi bekle
+            # Eğer sabah workflow'u GitHub yoğunluğundan erken başlarsa 09:50'yi bekle (09:50 = 590 dk)
             if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -lt 590 ]; then
-              echo "09:50 seansı bekleniyor..."
+              echo "Şu an saat: ${NOW_HOUR}:${NOW_MINUTE}. Seans başlangıcı (09:50) bekleniyor..."
               sleep 30
               continue
             fi
@@ -160,7 +162,7 @@ jobs:
           fi
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@://github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add gonderilen_hisseler.txt
 
