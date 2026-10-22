@@ -1,20 +1,13 @@
-
 name: Ticaret Botu Çalışır
 
 on:
-  schedule:
-    - cron: '50 9 * * 1-5'
-      timezone: 'Europe/Istanbul'
-    - cron: '0 14 * * 1-5'
-      timezone: 'Europe/Istanbul'
-
   repository_dispatch:
     types: [trigger-morning, trigger-afternoon]
 
   workflow_dispatch:
     inputs:
       session_mode:
-        description: 'Çalıştırma modu'
+        description: 'Calistirma modu'
         required: true
         default: morning
         type: choice
@@ -60,11 +53,9 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_ACTION: ${{ github.event.action }}
-          SCHEDULE_CRON: ${{ github.event.schedule }}
           MANUAL_MODE: ${{ inputs.session_mode || 'morning' }}
         run: |
           set -euo pipefail
-
           export TZ="Europe/Istanbul"
 
           MORNING_START=590
@@ -74,43 +65,21 @@ jobs:
 
           echo "=========================================="
           echo "5 DAKIKALIK TICARET BOTU"
-          echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "Turkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "Tetikleme: $EVENT_NAME"
           echo "=========================================="
 
           DAY_OF_WEEK=$(date +%u)
-
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
-            echo "Hafta sonu. Bot çalıştırılmayacak."
+            echo "Hafta sonu. Bot calistirilmayacak."
             exit 0
           fi
 
-          # Çalıştırma modunu belirle.
-          if [ "$EVENT_NAME" = "schedule" ]; then
-            case "$SCHEDULE_CRON" in
-              "50 9 * * 1-5")
-                MODE="morning"
-                ;;
-              "0 14 * * 1-5")
-                MODE="afternoon"
-                ;;
-              *)
-                echo "Bilinmeyen zamanlama: $SCHEDULE_CRON"
-                exit 1
-                ;;
-            esac
-          elif [ "$EVENT_NAME" = "repository_dispatch" ]; then
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
             case "$EVENT_ACTION" in
-              "trigger-morning")
-                MODE="morning"
-                ;;
-              "trigger-afternoon")
-                MODE="afternoon"
-                ;;
-              *)
-                echo "Bilinmeyen webhook eylemi: $EVENT_ACTION"
-                exit 1
-                ;;
+              "trigger-morning") MODE="morning" ;;
+              "trigger-afternoon") MODE="afternoon" ;;
+              *) echo "Bilinmeyen webhook eylemi: $EVENT_ACTION"; exit 1 ;;
             esac
           else
             MODE="$MANUAL_MODE"
@@ -120,114 +89,78 @@ jobs:
             morning)
               START_TOTAL=$MORNING_START
               END_TOTAL=$MORNING_END
-              echo "SABAH SEANSI: 09:50 - 14:00"
+              echo "SABAH SEANSI ONAYLANDI: 09:50 - 14:00"
               ;;
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
-              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:05"
+              echo "OGLEDEN SONRA SEANSI ONAYLANDI: 14:00 - 18:05"
               ;;
             *)
-              echo "Geçersiz seans: $MODE"
+              echo "Gecersiz seans: $MODE"
               exit 1
               ;;
           esac
 
           get_now_total() {
-            local h m
-            h=$(date +%H)
-            m=$(date +%M)
-            echo $((10#$h * 60 + 10#$m))
+            echo $((10#$(date +%H) * 60 + 10#$(date +%M)))
           }
 
           NOW_TOTAL=$(get_now_total)
 
-          # Sabah seansı 14:00'te, öğleden sonra seansı
-          # 18:05'ten sonra başlatılmaz.
           if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-            echo "Sabah seansı sona ermiş. Çıkılıyor."
+            echo "Sabah seansi bittigi icin islem baslatilamaz."
             exit 0
           fi
 
           if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -gt "$END_TOTAL" ]; then
-            echo "Öğleden sonra seansı sona ermiş. Çıkılıyor."
+            echo "Ogleden sonra seansi bittigi icin islem baslatilamaz."
             exit 0
-          fi
-
-          # Seans başlangıcından önce manuel/webhook
-          # çalıştırılırsa başlangıç saatini bekle.
-          if [ "$NOW_TOTAL" -lt "$START_TOTAL" ]; then
-            NOW_SECONDS=$(date +%S)
-            WAIT_SECONDS=$(( (START_TOTAL - NOW_TOTAL) * 60 - 10#$NOW_SECONDS ))
-
-            echo "Seans başlangıcı bekleniyor: $WAIT_SECONDS saniye"
-            sleep "$WAIT_SECONDS"
           fi
 
           SCAN_FAILURES=0
 
           while true; do
-            DAY_OF_WEEK=$(date +%u)
             NOW_TOTAL=$(get_now_total)
 
-            if [ "$DAY_OF_WEEK" -gt 5 ]; then
-              echo "Hafta sonu. Döngü kapatılıyor."
-              break
-            fi
-
             if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-              echo "Sabah seansı bitti."
+              echo "Saat 14:00 oldu. Sabah oturumu kapatiliyor."
               break
             fi
 
             if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -gt "$END_TOTAL" ]; then
-              echo "Öğleden sonra seansı bitti."
+              echo "Saat 18:05 oldu. Ogleden sonra oturumu kapatiliyor."
               break
             fi
 
             echo ""
             echo "=========================================="
-            echo "Tarama başlangıcı: $(date '+%H:%M:%S')"
+            echo "Tarama baslangici: $(date '+%H:%M:%S')"
             echo "=========================================="
 
             SCAN_START=$(date +%s)
 
             if python main.py; then
-              echo "Tarama başarıyla tamamlandı."
+              echo "Tarama basariyla tamamlandi."
             else
               SCAN_EXIT=$?
               SCAN_FAILURES=$((SCAN_FAILURES + 1))
-              echo "UYARI: main.py hata kodu $SCAN_EXIT ile sonlandı."
-              echo "Toplam başarısız tarama: $SCAN_FAILURES"
+              echo "UYARI: main.py hata kodu $SCAN_EXIT ile sonlandi."
             fi
 
             SCAN_END=$(date +%s)
-            echo "Tarama süresi: $((SCAN_END - SCAN_START)) saniye"
-
-            NOW_TOTAL=$(get_now_total)
-
-            if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-              echo "Sabah seansı bitişine ulaşıldı."
-              break
-            fi
-
-            if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-              echo "18:05 son taraması tamamlandı veya seans sınırına ulaşıldı."
-              break
-            fi
+            echo "Tarama suresi: $((SCAN_END - SCAN_START)) saniye"
 
             CURRENT_EPOCH=$(date +%s)
             NEXT_EPOCH=$(( (CURRENT_EPOCH / 300 + 1) * 300 ))
             WAIT_SECONDS=$((NEXT_EPOCH - CURRENT_EPOCH))
 
-            echo "Sonraki tarama için $WAIT_SECONDS saniye bekleniyor."
+            echo "Sonraki tarama icin $WAIT_SECONDS saniye bekleniyor."
             sleep "$WAIT_SECONDS"
           done
 
           echo "=========================================="
           echo "OTURUM TAMAMLANDI"
-          echo "Başarısız tarama sayısı: $SCAN_FAILURES"
-          echo "Bitiş: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "=========================================="
 
       - name: Gonderilen hisseleri kaydet
@@ -238,12 +171,9 @@ jobs:
             echo "Gonderilen hisse dosyasi bulunamadi."
             exit 0
           fi
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add gonderilen_hisseler.txt
-
           if git diff --cached --quiet; then
             echo "Yeni gonderilen hisse kaydi yok."
           else
