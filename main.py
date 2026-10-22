@@ -1,238 +1,118 @@
-import os
-import time
-import requests
-import pandas as pd
-import borsapy as bp
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from concurrent.futures import ThreadPoolExecutor, as_completed
+                # Aynı dakikada tekrar başlatma
+                # engeli
+                mevcut_slot = (
+                    simdi.strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+                )
 
-# ============================================================
-# AYARLAR
-# ============================================================
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+                if (
+                    son_tarama_tarihi
+                    !=
+                    mevcut_slot
+                ):
 
-GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
-AYLIK_GONDERILEN_DOSYA = "gonderilen_aylik_hisseler.txt"
-PERFORMANS_DOSYA = "5_gunluk_performans.txt"
+                    print(
+                        "\n⏰ PLANLI ÇALIŞMA ZAMANI"
+                    )
 
-EMA_PERIOD = 14
-RSI_PERIOD = 14
-BASE_PERIOD = 26
-ADX_PERIOD = 14
+                    print(
+                        "🕐",
+                        simdi.strftime(
+                            "%d.%m.%Y %H:%M:%S"
+                        )
+                    )
 
-EMA_MIN_DISTANCE = 0.02
-FIB_LOOKBACK = 100
+                    print(
+                        "📌 Dönem:",
+                        tarama_donemi()
+                    )
 
-# ============================================================
-# AYLIK MACD
-# ============================================================
-MACD_FAST = 12
-MACD_SLOW = 26
-MACD_SIGNAL = 9
-AYLIK_VERI_PERIYODU = "5y"
+                    # Taramayı başlat
+                    tek_tarama()
 
-# ============================================================
-# GENEL AYARLAR
-# ============================================================
-MAX_WORKERS = 4
-MAX_RETRIES = 3
-ISTANBUL = ZoneInfo("Europe/Istanbul")
+                    # Bu taramanın slotunu kaydet
+                    son_tarama_tarihi = mevcut_slot
 
-# ============================================================
-# ANA PAZAR
-# ============================================================
-ANA_PAZAR = {
-    "A1YEN","CATES","FRIGO","LKMNH","PRKAB","ACSEL","CELHA","FRMPL","LUKSK","PRKME",
-    "ADEL","CEMAS","GARFA","LXGYO","PRZMA","ADESE","CEMTS","GEDZA","LYDYE","PSDTC",
-    "AFYON","CEOEM","GENKM","MAALT","RAYSG","AHSGY","CMBTN","GEREL","MACKO","RTALB",
-    "AKENR","CONSE","GLRYH","MAKIM","RUBNS","AKHAN","CRFSA","GOODY","MAKTK","RUZYE",
-    "AKMGY","CUSAN","GSDDE","MANAS","SANFM","AKSUE","DAGI","GSDHO","MARBL","SANKO",
-    "ALCAR","DARDL","GUNDG","MARKA","SAYAS","ALCTL","DCTTR","GZNMI","MARMR","SEGMN",
-    "ALKA","DENGE","HATEK","MARTI","SEGYO","ALKIM","DERHL","HDFGS","MCARD","SELVA",
-    "ALKLC","DERIM","HEDEF","MEDTR","SERNT","ALVES","DESA","HKTM","MEKAG","SKTAS",
-    "ANELE","DESPC","HOROZ","MERCN","SKYMD","ANGEN","DGATE","HUNER","MERCN","SMART",
-    "ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU","SNICA",
-    "ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS","SVGYO",
-    "ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO","TBORG",
-    "AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO","TEKTU",
-    "AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS","TGSAS",
-    "BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM","TSGYO",
-    "BAKAB","EDIP","IZINV","ONCSM","TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG",
-    "BAYRK","EGEPO","JANTS","KAPLM","OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO",
-    "ULUFA","BESTE","EKOS","KFEIN","ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU",
-    "BIGCH","ELITE","KIMMR","OZYSR","VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU",
-    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","VKING",
-    "BLUME","EPLAS","KNFRT","PENGD","PETUN","YAPRK","BMSCH","ERBOS","KONKA","PETUN",
-    "BMSTL","ERCB","KRONT","KRPLS","PINSU","YIGIT","BNTAS","ESCOM","ETILR","KRSTL",
-    "YAYLA","BRKVY","KRVGD","PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR",
-    "YKSLN","BULGS","FMIZP","KUTPO","PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN",
-    "FORMT","FORTE","LIDFA"
-}
+                    print(
+                        "\n⏳ Bir sonraki planlı tarama bekleniyor..."
+                    )
 
-# ============================================================
-# GÜNLÜK GÖNDERİLENLER
-# ============================================================
-def gonderilenleri_oku():
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-    if not os.path.exists(GONDERILEN_DOSYA):
-        return set()
-    try:
-        kayitlar = set()
-        with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
-            for satir in dosya:
-                satir = satir.strip()
-                if not satir:
-                    continue
-                parcalar = satir.split("|")
-                if len(parcalar) == 2:
-                    tarih, hisse = parcalar
-                    if tarih == bugun:
-                        kayitlar.add(hisse.upper())
-        return kayitlar
-    except Exception as hata:
-        print("Gönderilenler okunamadı:", type(hata).__name__, str(hata))
-        return set()
+                # ------------------------------------------------
+                # Bir sonraki 5 dakikalık saat dilimine hizalan.
+                # Tarama süresi uzarsa ikinci tarama üst üste başlamaz.
+                # ------------------------------------------------
+                simdi_son = datetime.now(ISTANBUL)
+                dakika_sonraki = (
+                    (simdi_son.minute // TARAMA_ARALIGI_DAKIKA) + 1
+                ) * TARAMA_ARALIGI_DAKIKA
+                if dakika_sonraki >= 60:
+                    sonraki_slot = simdi_son.replace(
+                        minute=0, second=0, microsecond=0
+                    ) + timedelta(hours=1)
+                else:
+                    sonraki_slot = simdi_son.replace(
+                        minute=dakika_sonraki, second=0, microsecond=0
+                    )
+                bekleme = max(
+                    1,
+                    int((sonraki_slot - datetime.now(ISTANBUL)).total_seconds())
+                )
+                print(
+                    f"⏱️ Sonraki tarama slotu: {sonraki_slot.strftime('%H:%M:%S')} "
+                    f"({bekleme} sn bekleme)"
+                )
+                time.sleep(bekleme)
 
-def gonderilenleri_kaydet(hisseler):
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-    try:
-        mevcut = []
-        if os.path.exists(GONDERILEN_DOSYA):
-            with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
-                for satir in dosya:
-                    satir = satir.strip()
-                    if satir:
-                        mevcut.append(satir)
+                continue
 
-        bugunku = {satir for satir in mevcut if satir.startswith(bugun + "|")}
-        for hisse in hisseler:
-            bugunku.add(f"{bugun}|{hisse.upper()}")
+            # ------------------------------------------------
+            # AKTİF ÇALIŞMA DIŞI
+            # ------------------------------------------------
 
-        eski = [satir for satir in mevcut if not satir.startswith(bugun + "|")]
+            sonraki = (
+                sonraki_tarama_zamani_hesapla()
+            )
 
-        with open(GONDERILEN_DOSYA, "w", encoding="utf-8") as dosya:
-            for satir in sorted(eski + list(bugunku)):
-                dosya.write(satir + "\n")
-        print("Günlük kayıt dosyası güncellendi.")
-    except Exception as hata:
-        print("Gönderilenler kaydedilemedi:", type(hata).__name__, str(hata))
+            print(
+                "\r"
+                f"💤 Beklemede | "
+                f"Saat: {now.strftime('%H:%M:%S')} | "
+                f"Sonraki tarama: "
+                f"{sonraki.strftime('%d.%m %H:%M')}",
+                end="",
+                flush=True
+            )
+
+            # 30 saniyede bir kontrol
+            time.sleep(30)
+
+        except KeyboardInterrupt:
+
+            print(
+                "\n\n🛑 Bot kullanıcı tarafından durduruldu."
+            )
+
+            break
+
+        except Exception as hata:
+
+            print(
+                "\n\n🚨 SCHEDULER HATASI:",
+                type(hata).__name__,
+                str(hata)
+            )
+
+            print(
+                "⏳ 60 saniye sonra tekrar denenecek..."
+            )
+
+            time.sleep(60)
+
 
 # ============================================================
-# AYLIK GÖNDERİLENLER
+# ÇALIŞTIR
 # ============================================================
-def aylik_gonderilenleri_oku():
-    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
-    if not os.path.exists(AYLIK_GONDERILEN_DOSYA):
-        return set()
-    try:
-        kayitlar = set()
-        with open(AYLIK_GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
-            for satir in dosya:
-                satir = satir.strip()
-                if not satir:
-                    continue
-                parcalar = satir.split("|")
-                if len(parcalar) == 2:
-                    ay, hisse = parcalar
-                    if ay == bu_ay:
-                        kayitlar.add(hisse.upper())
-        return kayitlar
-    except Exception as hata:
-        print("Aylık gönderilenler okunamadı:", type(hata).__name__, str(hata))
-        return set()
 
-def aylik_gonderilenleri_kaydet(hisseler):
-    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
-    try:
-        mevcut = []
-        if os.path.exists(AYLIK_GONDERILEN_DOSYA):
-            with open(AYLIK_GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
-                for satir in dosya:
-                    satir = satir.strip()
-                    if satir:
-                        mevcut.append(satir)
-
-        bu_ayki = {satir for satir in mevcut if satir.startswith(bu_ay + "|")}
-        for hisse in hisseler:
-            bu_ayki.add(f"{bu_ay}|{hisse.upper()}")
-
-        eski = [satir for satir in mevcut if not satir.startswith(bu_ay + "|")]
-
-        with open(AYLIK_GONDERILEN_DOSYA, "w", encoding="utf-8") as dosya:
-            for satir in sorted(eski + list(bu_ayki)):
-                dosya.write(satir + "\n")
-        print("Aylık kayıt dosyası güncellendi.")
-    except Exception as hata:
-        print("Aylık gönderilenler kaydedilemedi:", type(hata).__name__, str(hata))
-
-# ============================================================
-# TELEGRAM BİLDİRİM FONKSİYONU
-# ============================================================
-def telegram_mesaj_gonder(mesaj):
-    if not TELEGRAM_TOKEN or not CHAT_ID:
-        print("Telegram token veya Chat ID eksik!")
-        return
-    url = f"https://telegram.org{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": mesaj, "parse_mode": "Markdown"}
-    try:
-        response = requests.post(url, json=payload)
-        if response.status_code != 200:
-            print(f"Telegram hatası: {response.text}")
-    except Exception as e:
-        print(f"Telegram bağlantı hatası: {str(e)}")
-
-# ============================================================
-# PIYASA TARAMA FONKSİYONU
-# ============================================================
-def hisse_tarama_yap(aylik_tarama_yapilsin_mi=False):
-    if aylik_tarama_yapilsin_mi:
-        print(">> [MOD: DERİN] Aylık MACD filtresi dahil edilerek geniş tarama yapılıyor...")
-    else:
-        print(">> [MOD: RUTİN] Aylık MACD atlandı. Gün içi hızlı tarama yapılıyor...")
-        
-    bulunan_hisseler = []
-    
-    # Kendi tarama algoritmanızı veya iç fonksiyonlarınızı buraya bağlayabilirsiniz.
-    # Örnek kullanımı:
-    # if aylik_tarama_yapilsin_mi:
-    #     # Aylık MACD hesaplama süreçlerini çalıştır
-    #     pass
-        
-    return bulunan_hisseler
-
-# ============================================================
-# ANA ÇALIŞTIRICI SİSTEM
-# ============================================================
 if __name__ == "__main__":
-    simdi = datetime.now(ISTANBUL)
-    mevcut_saat_dk = simdi.hour * 60 + simdi.minute
-    
-    # Hafta sonu engeli
-    if simdi.weekday() >= 5:
-        print("Bugün hafta sonu. Tarama yapılmıyor.")
-        
-    # Sadece seans saatleri içi (09:50 - 18:00) çalışmasına izin ver
-    elif 590 <= mevcut_saat_dk <= 1080:
-        
-        # Günde 2 kere Aylık MACD kontrolü yapacak akıllı mekanizma:
-        # 1. Oturum: 09:50 - 10:00 arası (Sabah ilk tarama seansı)
-        # 2. Oturum: 17:50 - 18:00 arası (Akşam kapanış tarama seansı)
-        if (590 <= mevcut_saat_dk <= 600) or (1070 <= mevcut_saat_dk <= 1080):
-            AYLIK_TARAMA_AKTIF = True
-        else:
-            AYLIK_TARAMA_AKTIF = False
-            
-        # Taramayı belirlenen mod ile tetikleme
-        bulunanlar = hisse_tarama_yap(aylik_tarama_yapilsin_mi=AYLIK_TARAMA_AKTIF)
-        
-        if bulunanlar:
-            gonderilenler = gonderilenleri_oku()
-            yeni_hisseler = [h for h in bulunanlar if h not in gonderilenler]
-            
-            if yeni_hisseler:
-                mesaj = f"🔔 *Yeni Sinyal Veren Hisseler:*\n" + "\n".join([f"📈 #{h}" for h in yeni_hisseler])
-                telegram_mesaj_gonder(mesaj)
-                gonderilenleri_kaydet(yeni_hisseler)
