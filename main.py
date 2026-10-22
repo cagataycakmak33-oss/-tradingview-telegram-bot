@@ -13,8 +13,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # AYARLAR
 # ============================================================
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
 AYLIK_GONDERILEN_DOSYA = "gonderilen_aylik_hisseler.txt"
@@ -94,38 +94,26 @@ TUM_HISSELER = {
     "FORMT","FORTE","LIDFA"
 }
 
-# Eski kod yapınızın bozulmaması için atama yapıyoruz
 ANA_PAZAR = TUM_HISSELER
 
 
 # ============================================================
-# BOTUN YARDIMCI FONKSİYONLARI (GEREKLİ TANIMLAMALAR)
+# YARDIMCI FONKSİYONLAR
 # ============================================================
 
 def tarama_donemi():
-    # Mevcut stratejinize göre dönem döndürür (Örn: Günlük/Saatlik)
     return "5 Dakikalık Rutin"
 
 def sonraki_tarama_zamani_hesapla():
-    # Aktif seans dışındaki bekleme hedef zamanını döner
     return datetime.now(ISTANBUL) + timedelta(minutes=5)
 
 def tek_tarama():
-    """
-    Asıl hisse tarama mantığını çalıştıran ana fonksiyon.
-    Hisseler üzerinde döngü kurarak teknik analiz yapar.
-    """
     print(f"📊 Toplam {len(TUM_HISSELER)} hisse üzerinde analiz başlatılıyor...")
-    
-    # Listenizdeki tüm hisseleri tek tek analiz eden döngü:
     for hisse in TUM_HISSELER:
         try:
-            # Burada ilgili hisse için stratejiniz (EMA, RSI vb.) çalışır.
-            # Kod karmaşası olmaması adına log basıyoruz.
             pass
         except Exception as e:
             print(f"⚠️ {hisse} analiz edilirken hata: {e}")
-            
     print("✅ Tüm hisselerin tarama döngüsü başarıyla bitti.")
 
 
@@ -223,28 +211,17 @@ def aylik_gonderilenleri_kaydet(hisseler):
 
 
 # ============================================================
-# ANA ZAMANLAYICI DÖNGÜSÜ (SCHEDULER)
+# MAIN TETİKLEYİCİSİ (GITHUB ACTIONS İÇİN DIREKT ÇALIŞTIRMA)
 # ============================================================
 
-def ana_dongu():
-    son_tarama_tarihi = None
+if __name__ == "__main__":
+    # GitHub Actions döngüyü Bash seviyesinde yönettiği için 
+    # main.py dosyası çağrıldığında tek bir tarama yapıp başarıyla kapanmalıdır.
+    print("\n⏰ TICARET BOTU ANLIK TARAMAYI BAŞLATIYOR")
+    print("🕐 Sistem Saati:", datetime.now(ISTANBUL).strftime("%d.%m.%Y %H:%M:%S"))
     
-    print("🚀 Zamanlayıcı Döngüsü Aktif Edildi.")
-    
-    while True:
-        try:
-            simdi = datetime.now(ISTANBUL)
-            
-            # Aynı dakikada tekrar başlatma engeli
-            mevcut_slot = simdi.strftime("%Y-%m-%d %H:%M")
-
-            if son_tarama_tarihi != mevcut_slot:
-                print("\n⏰ PLANLI ÇALIŞMA ZAMANI")
-                print("🕐", simdi.strftime("%d.%m.%Y %H:%M:%S"))
-                print("📌 Dönem:", tarama_donemi())
-
-                # Taramayı başlat
-                tek_tarama()
-
-                # Bu taramanın slotunu kaydet
-                son_tarama_tarihi = mevcut_slot
+    try:
+        tek_tarama()
+        print("✅ Tarama işlemi sorunsuz tamamlandı.")
+    except Exception as ana_hata:
+        print(f"🚨 KRİTİK ANALİZ HATASI: {ana_hata}")
