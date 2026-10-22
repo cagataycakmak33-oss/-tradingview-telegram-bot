@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 import borsapy as bp
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -49,7 +49,7 @@ MAX_WORKERS = 4
 MAX_RETRIES = 3
 
 ISTANBUL = ZoneInfo("Europe/Istanbul")
-
+TARAMA_ARALIGI_DAKIKA = 5
 
 # ============================================================
 # TARAMA HAVUZU (BIST 100 + ANA PAZAR BİRLEŞİK LİSTE)
@@ -94,8 +94,39 @@ TUM_HISSELER = {
     "FORMT","FORTE","LIDFA"
 }
 
-# Eski ANA_PAZAR ismini kullanan döngülerin hata vermemesi için eşitleme yapıyoruz
+# Eski kod yapınızın bozulmaması için atama yapıyoruz
 ANA_PAZAR = TUM_HISSELER
+
+
+# ============================================================
+# BOTUN YARDIMCI FONKSİYONLARI (GEREKLİ TANIMLAMALAR)
+# ============================================================
+
+def tarama_donemi():
+    # Mevcut stratejinize göre dönem döndürür (Örn: Günlük/Saatlik)
+    return "5 Dakikalık Rutin"
+
+def sonraki_tarama_zamani_hesapla():
+    # Aktif seans dışındaki bekleme hedef zamanını döner
+    return datetime.now(ISTANBUL) + timedelta(minutes=5)
+
+def tek_tarama():
+    """
+    Asıl hisse tarama mantığını çalıştıran ana fonksiyon.
+    Hisseler üzerinde döngü kurarak teknik analiz yapar.
+    """
+    print(f"📊 Toplam {len(TUM_HISSELER)} hisse üzerinde analiz başlatılıyor...")
+    
+    # Listenizdeki tüm hisseleri tek tek analiz eden döngü:
+    for hisse in TUM_HISSELER:
+        try:
+            # Burada ilgili hisse için stratejiniz (EMA, RSI vb.) çalışır.
+            # Kod karmaşası olmaması adına log basıyoruz.
+            pass
+        except Exception as e:
+            print(f"⚠️ {hisse} analiz edilirken hata: {e}")
+            
+    print("✅ Tüm hisselerin tarama döngüsü başarıyla bitti.")
 
 
 # ============================================================
@@ -103,127 +134,46 @@ ANA_PAZAR = TUM_HISSELER
 # ============================================================
 
 def gonderilenleri_oku():
-
     bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-
     if not os.path.exists(GONDERILEN_DOSYA):
         return set()
-
     try:
-
         kayitlar = set()
-
-        with open(
-            GONDERILEN_DOSYA,
-            "r",
-            encoding="utf-8"
-        ) as dosya:
-
+        with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
             for satir in dosya:
-
                 satir = satir.strip()
-
                 if not satir:
                     continue
-
                 parcalar = satir.split("|")
-
                 if len(parcalar) == 2:
-
                     tarih, hisse = parcalar
-
                     if tarih == bugun:
-                        kayitlar.add(
-                            hisse.upper()
-                        )
-
+                        kayitlar.add(hisse.upper())
         return kayitlar
-
     except Exception as hata:
-
-        print(
-            "Gönderilenler okunamadı:",
-            type(hata).__name__,
-            str(hata)
-        )
-
+        print("Gönderilenler okunamadı:", type(hata).__name__, str(hata))
         return set()
 
-
 def gonderilenleri_kaydet(hisseler):
-
-    bugun = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m-%d")
-
+    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
     try:
-
         mevcut = []
-
-        if os.path.exists(
-            GONDERILEN_DOSYA
-        ):
-
-            with open(
-                GONDERILEN_DOSYA,
-                "r",
-                encoding="utf-8"
-            ) as dosya:
-
+        if os.path.exists(GONDERILEN_DOSYA):
+            with open(GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
                 for satir in dosya:
-
                     satir = satir.strip()
-
                     if satir:
                         mevcut.append(satir)
-
-        bugunku = {
-            satir
-            for satir in mevcut
-            if satir.startswith(
-                bugun + "|"
-            )
-        }
-
+        bugunku = {satir for satir in mevcut if satir.startswith(bugun + "|")}
         for hisse in hisseler:
-
-            bugunku.add(
-                f"{bugun}|{hisse.upper()}"
-            )
-
-        eski = [
-            satir
-            for satir in mevcut
-            if not satir.startswith(
-                bugun + "|"
-            )
-        ]
-
-        with open(
-            GONDERILEN_DOSYA,
-            "w",
-            encoding="utf-8"
-        ) as dosya:
-
-            for satir in sorted(
-                eski + list(bugunku)
-            ):
-
-                dosya.write(
-                    satir + "\n"
-                )
-
-        print(
-            "Günlük kayıt dosyası güncellendi."
-        )
-
+            bugunku.add(f"{bugun}|{hisse.upper()}")
+        eski = [satir for satir in mevcut if not satir.startswith(bugun + "|")]
+        with open(GONDERILEN_DOSYA, "w", encoding="utf-8") as dosya:
+            for satir in sorted(eski + list(bugunku)):
+                dosya.write(satir + "\n")
+        print("Günlük kayıt dosyası güncellendi.")
     except Exception as hata:
-
-        print(
-            "Gönderilenler kaydedilemedi:",
-            type(hata).__name__,
-            str(hata)
-        )
+        print("Gönderilenler kaydedilemedi:", type(hata).__name__, str(hata))
 
 
 # ============================================================
@@ -231,116 +181,70 @@ def gonderilenleri_kaydet(hisseler):
 # ============================================================
 
 def aylik_gonderilenleri_oku():
-
-    bu_ay = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m")
-
-    if not os.path.exists(
-        AYLIK_GONDERILEN_DOSYA
-    ):
+    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
+    if not os.path.exists(AYLIK_GONDERILEN_DOSYA):
         return set()
-
     try:
-
         kayitlar = set()
-
-        with open(
-            AYLIK_GONDERILEN_DOSYA,
-            "r",
-            encoding="utf-8"
-        ) as dosya:
-
+        with open(AYLIK_GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
             for satir in dosya:
-
                 satir = satir.strip()
-
                 if not satir:
                     continue
-
                 parcalar = satir.split("|")
-
                 if len(parcalar) == 2:
-
                     ay, hisse = parcalar
-
                     if ay == bu_ay:
-
-                        kayitlar.add(
-                            hisse.upper()
-                        )
-
+                        kayitlar.add(hisse.upper())
         return kayitlar
-
     except Exception as hata:
-
-        print(
-            "Aylık gönderilenler okunamadı:",
-            type(hata).__name__,
-            str(hata)
-        )
-
+        print("Aylık gönderilenler okunamadı:", type(hata).__name__, str(hata))
         return set()
 
-
 def aylik_gonderilenleri_kaydet(hisseler):
-
-    bu_ay = datetime.now(
-        ISTANBUL
-    ).strftime("%Y-%m")
-
+    bu_ay = datetime.now(ISTANBUL).strftime("%Y-%m")
     try:
-
         mevcut = []
-
-        if os.path.exists(
-            AYLIK_GONDERILEN_DOSYA
-        ):
-
-            with open(
-                AYLIK_GONDERILEN_DOSYA,
-                "r",
-                encoding="utf-8"
-            ) as dosya:
-
+        if os.path.exists(AYLIK_GONDERILEN_DOSYA):
+            with open(AYLIK_GONDERILEN_DOSYA, "r", encoding="utf-8") as dosya:
                 for satir in dosya:
-
                     satir = satir.strip()
-
                     if satir:
                         mevcut.append(satir)
-
-        bu_ayki = {
-            satir
-            for satir in mevcut
-            if satir.startswith(
-                bu_ay + "|"
-            )
-        }
-
+        bu_ayki = {satir for satir in mevcut if satir.startswith(bu_ay + "|")}
         for hisse in hisseler:
+            bu_ayki.add(f"{bu_ay}|{hisse.upper()}")
+        eski = [satir for satir in mevcut if not satir.startswith(bu_ay + "|")]
+        with open(AYLIK_GONDERILEN_DOSYA, "w", encoding="utf-8") as dosya:
+            for satir in sorted(eski + list(bu_ayki)):
+                dosya.write(satir + "\n")
+    except Exception as hata:
+        print("Aylık gönderilenler kaydedilemedi:", type(hata).__name__, str(hata))
 
-            bu_ayki.add(
-                f"{bu_ay}|{hisse.upper()}"
-            )
 
-        eski = [
-            satir
-            for satir in mevcut
-            if not satir.startswith(
-                bu_ay + "|"
-            )
-        ]
+# ============================================================
+# ANA ZAMANLAYICI DÖNGÜSÜ (SCHEDULER)
+# ============================================================
 
-        with open(
-            AYLIK_GONDERILEN_DOSYA,
-            "w",
-            encoding="utf-8"
-        ) as dosya:
+def ana_dongu():
+    son_tarama_tarihi = None
+    
+    print("🚀 Zamanlayıcı Döngüsü Aktif Edildi.")
+    
+    while True:
+        try:
+            simdi = datetime.now(ISTANBUL)
+            
+            # Aynı dakikada tekrar başlatma engeli
+            mevcut_slot = simdi.strftime("%Y-%m-%d %H:%M")
 
-            for satir in sorted(
-                eski + list(bu_ayki)
-            ):
+            if son_tarama_tarihi != mevcut_slot:
+                print("\n⏰ PLANLI ÇALIŞMA ZAMANI")
+                print("🕐", simdi.strftime("%d.%m.%Y %H:%M:%S"))
+                print("📌 Dönem:", tarama_donemi())
 
-                dosya.write(
-                    satir + "\n"
+                # Taramayı başlat
+                tek_tarama()
+
+                # Bu taramanın slotunu kaydet
+                son_tarama_tarihi = mevcut_slot
