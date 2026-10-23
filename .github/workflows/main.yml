@@ -1,13 +1,16 @@
 name: Ticaret Botu Çalışır
 
 on:
-  repository_dispatch:
-    types: [trigger-morning, trigger-afternoon]
+  schedule:
+    # Hafta içi her gün sabah oturumu için (TSİ 09:50)
+    - cron: '50 6 * * 1-5'
+    # Hafta içi her gün öğleden sonra oturumu için (TSİ 14:00)
+    - cron: '0 11 * * 1-5'
 
   workflow_dispatch:
     inputs:
       session_mode:
-        description: 'Calistirma modu'
+        description: 'Manuel Calistirma Modu'
         required: true
         default: morning
         type: choice
@@ -52,7 +55,6 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
           MANUAL_MODE: ${{ inputs.session_mode || 'morning' }}
         run: |
           set -euo pipefail
@@ -75,12 +77,14 @@ jobs:
             exit 0
           fi
 
-          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
-            case "$EVENT_ACTION" in
-              "trigger-morning") MODE="morning" ;;
-              "trigger-afternoon") MODE="afternoon" ;;
-              *) echo "Bilinmeyen webhook eylemi: $EVENT_ACTION"; exit 1 ;;
-            esac
+          # Tetiklenme türüne göre modu otomatik seç (cron zamanına göre)
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            CURRENT_HOUR=$(date +%H)
+            if [ "$CURRENT_HOUR" -lt 12 ]; then
+              MODE="morning"
+            else
+              MODE="afternoon"
+            fi
           else
             MODE="$MANUAL_MODE"
           fi
@@ -105,18 +109,6 @@ jobs:
           get_now_total() {
             echo $((10#$(date +%H) * 60 + 10#$(date +%M)))
           }
-
-          NOW_TOTAL=$(get_now_total)
-
-          if [ "$MODE" = "morning" ] && [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
-            echo "Sabah seansi bittigi icin islem baslatilamaz."
-            exit 0
-          fi
-
-          if [ "$MODE" = "afternoon" ] && [ "$NOW_TOTAL" -gt "$END_TOTAL" ]; then
-            echo "Ogleden sonra seansi bittigi icin islem baslatilamaz."
-            exit 0
-          fi
 
           SCAN_FAILURES=0
 
