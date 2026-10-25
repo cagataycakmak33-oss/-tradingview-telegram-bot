@@ -1,9 +1,10 @@
+
 name: Ticaret Botu Çalışır
 
 on:
   schedule:
-    # Türkiye saati 09:55 (UTC 06:55)
-    - cron: '55 6 * * 1-5'
+    # Türkiye saati 09:50 (UTC 06:50)
+    - cron: '50 6 * * 1-5'
     # Türkiye saati 14:00 (UTC 11:00)
     - cron: '0 11 * * 1-5'
 
@@ -62,10 +63,10 @@ jobs:
           set -euo pipefail
           export TZ="Europe/Istanbul"
 
-          MORNING_START=595
+          MORNING_START=590
           MORNING_END=840
           AFTERNOON_START=840
-          AFTERNOON_END=1080
+          AFTERNOON_END=1085
 
           echo "=========================================="
           echo "5 DAKIKALIK TICARET BOTU"
@@ -83,7 +84,7 @@ jobs:
 
           if [ "$EVENT_NAME" = "schedule" ]; then
             case "$SCHEDULE_CRON" in
-              "55 6 * * 1-5")
+              "50 6 * * 1-5")
                 MODE="morning"
                 ;;
               "0 11 * * 1-5")
@@ -102,14 +103,14 @@ jobs:
             morning)
               START_TOTAL=$MORNING_START
               END_TOTAL=$MORNING_END
-              echo "SABAH SEANSI: 09:55 - 14:00"
-              echo "Son sabah taraması: 13:55"
+              echo "SABAH SEANSI: 09:50 - 14:00"
+              echo "Hedef taramalar: 09:50, 09:55, ... 13:55"
               ;;
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
-              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:00"
-              echo "Son tarama: 18:00"
+              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:05"
+              echo "Hedef taramalar: 14:00, 14:05, ... 18:05"
               ;;
             *)
               echo "Geçersiz seans: $MODE"
@@ -124,11 +125,30 @@ jobs:
             echo $((10#$hour * 60 + 10#$minute))
           }
 
-          # Manuel olarak erken başlatılırsa seans saatini bekle.
           while [ "$(get_now_total)" -lt "$START_TOTAL" ]; do
             echo "Seans başlangıcı bekleniyor: $(date '+%H:%M:%S')"
             sleep 15
           done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          kayitlari_kaydet() {
+            if [ ! -f gonderilen_hisseler.txt ]; then
+              echo "Gönderilen hisse kayıt dosyası bulunamadı."
+              return 0
+            fi
+
+            git add gonderilen_hisseler.txt
+
+            if ! git diff --cached --quiet; then
+              git commit -m "Günlük gönderilen hisseleri güncelle"
+              git push
+              echo "Günlük hisse kayıtları GitHub'a kaydedildi."
+            else
+              echo "Yeni kayıt yok."
+            fi
+          }
 
           SCAN_FAILURES=0
           LAST_SLOT=""
@@ -136,27 +156,21 @@ jobs:
           while true; do
             NOW_TOTAL=$(get_now_total)
 
-            # Sabah seansı 14:00'te biter.
-            # 14:00 taramasını öğleden sonraki seans yapar.
             if [ "$MODE" = "morning" ] &&
                [ "$NOW_TOTAL" -ge "$MORNING_END" ]; then
               echo "Sabah seansı sona erdi."
               break
             fi
 
-            # Öğleden sonra 18:00 taraması dahil.
             if [ "$MODE" = "afternoon" ] &&
                [ "$NOW_TOTAL" -gt "$AFTERNOON_END" ]; then
               echo "Öğleden sonra seansı sona erdi."
               break
             fi
 
-            # Aynı beş dakikalık zaman diliminde tekrar tarama yapma.
-            SLOT=$(date '+%Y-%m-%d %H:%M')
             SLOT_MINUTE=$((10#$(date +%M)))
-
             SLOT_MINUTE=$((SLOT_MINUTE / 5 * 5))
-            SLOT=$(date '+%Y-%m-%d %H')":"$(printf '%02d' "$SLOT_MINUTE")
+            SLOT="$(date '+%Y-%m-%d %H'):$(printf '%02d' "$SLOT_MINUTE")"
 
             if [ "$SLOT" = "$LAST_SLOT" ]; then
               sleep 2
@@ -181,10 +195,11 @@ jobs:
               echo "UYARI: main.py hata kodu $SCAN_EXIT ile sonlandı."
             fi
 
+            kayitlari_kaydet
+
             SCAN_END=$(date +%s)
             echo "Tarama süresi: $((SCAN_END - SCAN_START)) saniye"
 
-            # Sonraki 5 dakikalık saat dilimine hizalan.
             CURRENT_EPOCH=$(date +%s)
             NEXT_EPOCH=$(( (CURRENT_EPOCH / 300 + 1) * 300 ))
             WAIT_SECONDS=$((NEXT_EPOCH - CURRENT_EPOCH))
@@ -198,7 +213,7 @@ jobs:
           echo "Başarısız tarama sayısı: $SCAN_FAILURES"
           echo "=========================================="
 
-      - name: Gönderilen hisseleri kaydet
+      - name: Son kayıtları güvenceye al
         if: always()
         shell: bash
         run: |
@@ -213,9 +228,8 @@ jobs:
           git add gonderilen_hisseler.txt
 
           if git diff --cached --quiet; then
-            echo "Yeni gönderilen hisse kaydı yok."
+            echo "Kaydedilecek yeni kayıt yok."
           else
             git commit -m "Günlük gönderilen hisseleri güncelle"
             git push
           fi
-```
