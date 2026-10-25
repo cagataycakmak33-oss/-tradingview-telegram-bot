@@ -1,96 +1,104 @@
-import os
-import time
-import requests
-import borsapy as bp
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from concurrent.futures import ThreadPoolExecutor, as_completed
+        )
 
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-GONDERILEN_DOSYA = "gonderilen_hisseler.txt"
+        fiyat = (
+            sonuc["price"]
+        )
 
-EMA_PERIOD = 14
-RSI_PERIOD = 14
-BASE_PERIOD = 26
-ADX_PERIOD = 14
+        stop = (
+            sonuc["stop"]
+        )
 
-EMA_MIN_DISTANCE = 0.02
+        stop_fib = (
+            sonuc["stop_fib"]
+        )
 
-# TradingView ile aynı mantık:
-# Son 100 günlük mum içerisindeki dip ve tepe
-FIB_LOOKBACK = 100
+        fibler = (
+            sonuc["fib_levels"]
+        )
 
-MAX_WORKERS = 4
-MAX_RETRIES = 3
+        fiyat_fib = (
+            sonuc["fiyat_fib"]
+        )
 
-ISTANBUL = ZoneInfo("Europe/Istanbul")
+        # =================================================
+        # TELEGRAM MESAJI
+        # =================================================
+
+        mesaj = (
+
+            f"🟢 YENİ : {symbol}"
+            f"                   ADX "
+            f"{adx_isaret} "
+            f"{adx_deger:.1f}\n"
+
+            f"⭐ Sinyal Gücü: "
+            f"{sonuc['sinyal_gucu']}/100\n\n"
+
+            f"💰 Giriş: "
+            f"{fiyat:.2f} TL\n"
+
+            f"{gunluk_isaret} Günlük: "
+            f"{sonuc['daily_change']:+.2f}%\n"
+
+            f"{hafta_isaret} 1 Hafta: "
+            f"{sonuc['weekly_change']:+.2f}%\n"
+
+            f"📏 EMA14: "
+            f"{sonuc['ema14']:.2f} TL "
+            f"({sonuc['ema_mesafe']:+.2f}%)\n"
+
+            f"📊 RSI: "
+            f"{sonuc['rsi14']:.1f}\n\n"
+
+            f"📐 FIB SEVİYELERİ\n\n"
+
+            f"{fib_satiri('0.000', fibler['0.000'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('0.236', fibler['0.236'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('0.382', fibler['0.382'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('0.500', fibler['0.500'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('0.618', fibler['0.618'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('0.786', fibler['0.786'], fiyat, fiyat_fib)}\n"
+
+            f"{fib_satiri('1.000', fibler['1.000'], fiyat, fiyat_fib)}\n\n"
+
+            f"🛑 STOP\n"
+
+            f"{stop_fib} → "
+            f"{stop:.2f} TL\n\n"
+
+            f"🎯 TEPE POTANSİYELİ\n"
+
+            f"1.000 → "
+            f"{fibler['1.000']:.2f} TL"
+            f"  |  "
+            f"{sonuc['tepe_potansiyel']:+.2f}%\n\n"
+
+            f"🏦 Pazar: "
+            f"{pazar_adi}\n"
+
+            f"🔊 Hacim: "
+            f"{sonuc['volume'] / 1_000_000:.1f}M"
+        )
+
+        if telegram_gonder(mesaj):
+            basariyla_gonderilenler.add(symbol)
+            # Her başarılı mesajdan hemen sonra yerel kaydı güncelle.
+            # İş akışı adımı tamamlandığında YAML bu dosyayı GitHub'a aktarır.
+            gonderilenleri_kaydet({symbol})
+        else:
+            print(
+                f"{symbol}: Telegram gönderimi başarısız; hisse gönderildi olarak kaydedilmedi."
+            )
+
+    if not basariyla_gonderilenler:
+        print("Yeni gönderilen hisse yok.")
 
 
-ANA_PAZAR = {
-    "A1YEN","CATES","FRIGO","LKMNH","PRKAB","ACSEL","CELHA","FRMPL","LUKSK","PRKME",
-    "ADEL","CEMAS","GARFA","LXGYO","PRZMA","ADESE","CEMTS","GEDZA","LYDYE","PSDTC",
-    "AFYON","CEOEM","GENKM","MAALT","RAYSG","AHSGY","CMBTN","GEREL","MACKO","RTALB",
-    "AKENR","CONSE","GLRYH","MAKIM","RUBNS","AKHAN","CRFSA","GOODY","MAKTK","RUZYE",
-    "AKMGY","CUSAN","GSDDE","MANAS","SANFM","AKSUE","DAGI","GSDHO","MARBL","SANKO",
-    "ALCAR","DARDL","GUNDG","MARKA","SAYAS","ALCTL","DCTTR","GZNMI","MARMR","SEGMN",
-    "ALKA","DENGE","HATEK","MARTI","SEGYO","ALKIM","DERHL","HDFGS","MCARD","SELVA",
-    "ALKLC","DERIM","HEDEF","MEDTR","SERNT","ALVES","DESA","HKTM","MEKAG","SKTAS",
-    "ANELE","DESPC","HOROZ","MERCN","SKYMD","ANGEN","DGATE","HUNER","MERCN","SMART",
-    "ARENA","DGNMO","HURGZ","METRO","SMRVA","ARFYE","DITAS","ICBCT","MEYSU","SNICA",
-    "ARSAN","DMRGD","ICUGS","IHAAS","MHRGY","ARTMS","DMSAS","ICUGS","MNDRS","SVGYO",
-    "ARZUM","DNISI","IHGZT","MNDTR","TATGD","AVGYO","DOCO","IHLGM","MRGYO","TBORG",
-    "AVOD","DOKTA","IMASM","MRSHL","TEHOL","AYCES","DUNYH","INFO","MSGYO","TEKTU",
-    "AYEN","DURDO","INGRM","MTRKS","TERA","AZTEK","DURKN","INTEM","NETAS","TGSAS",
-    "BAGFS","DYOBY","DZGYO","ISYAT","OBASE","BAHKM","EDATA","IZFAS","OFSYM","TSGYO",
-    "BAKAB","EDIP","IZINV","ONCSM","TUCLK","BANVT","EGEGY","IZMDC","ONRYT","TURGG",
-    "BAYRK","EGEPO","JANTS","KAPLM","OSTIM","UFUK","BEGYO","EGSER","KARTN","OZGYO",
-    "ULUFA","BESTE","EKOS","KFEIN","ULUUN","BEYAZ","EKSUN","KGYO","OZSUB","UNLU",
-    "BIGCH","ELITE","KIMMR","OZYSR","VBTYZ","BIGTK","EMKEL","KLMSN","PAMEL","VERTU",
-    "BIZIM","EMPAE","KIMMR","PCILT","VERUS","BLCYT","ENSRI","KLSYN","PEKGY","VKING",
-    "BLUME","EPLAS","KNFRT","PENGD","VRGYO","BMSCH","ERBOS","KONKA","PETUN","YAPRK",
-    "BMSTL","ERCB","KRONT","KRPLS","PINSU","YIGIT","BNTAS","ESCOM","ETILR","KRSTL",
-    "YAYLA","BRKVY","EYGYO","KRVGD","PKENT","YESIL","BRLSM","FADE","KTSKR","PLTUR",
-    "YKSLN","BULGS","FMIZP","KUTPO","PNLSN","BURCE","FONET","PRDGS","ZGYO","BVSAN",
-    "FORMT","FORTE","LIDFA"
-}
+if __name__ == "__main__":
 
-
-def gonderilenleri_oku():
-
-    bugun = datetime.now(ISTANBUL).strftime("%Y-%m-%d")
-
-    if not os.path.exists(GONDERILEN_DOSYA):
-        return set()
-
-    try:
-
-        kayitlar = set()
-
-        with open(
-            GONDERILEN_DOSYA,
-            "r",
-            encoding="utf-8"
-        ) as dosya:
-
-            for satir in dosya:
-
-                satir = satir.strip()
-
-                if not satir:
-                    continue
-
-                parcalar = satir.split("|")
-
-                if len(parcalar) == 2:
-
-                    tarih, hisse = parcalar
-
-                    if tarih == bugun:
-                        kayitlar.add(hisse.upper())
-
-        return kayitlar
-
-    except Exception as hata:
-
-        print(
+    main()
