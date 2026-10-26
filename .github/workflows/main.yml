@@ -1,10 +1,9 @@
-
 name: Ticaret Botu Çalışır
 
 on:
   schedule:
-    # Türkiye saati 09:50 (UTC 06:50)
-    - cron: '50 6 * * 1-5'
+    # Türkiye saati 09:55 (UTC 06:55)
+    - cron: '55 6 * * 1-5'
     # Türkiye saati 14:00 (UTC 11:00)
     - cron: '0 11 * * 1-5'
 
@@ -52,18 +51,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Botu 5 dakikada bir çalıştır
+      - name: Botu seans boyunca 5 dakikada bir çalıştır
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
           SCHEDULE_CRON: ${{ github.event.schedule }}
           MANUAL_MODE: ${{ inputs.session_mode || 'morning' }}
-
         run: |
           set -euo pipefail
           export TZ="Europe/Istanbul"
 
-          MORNING_START=590
+          MORNING_START=595
           MORNING_END=840
           AFTERNOON_START=840
           AFTERNOON_END=1085
@@ -72,11 +70,10 @@ jobs:
           echo "5 DAKIKALIK TICARET BOTU"
           echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "Tetikleme: $EVENT_NAME"
-          echo "Cron: $SCHEDULE_CRON"
+          echo "Cron: ${SCHEDULE_CRON:-manuel}"
           echo "=========================================="
 
           DAY_OF_WEEK=$(date +%u)
-
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
             echo "Hafta sonu. Bot çalıştırılmayacak."
             exit 0
@@ -84,7 +81,7 @@ jobs:
 
           if [ "$EVENT_NAME" = "schedule" ]; then
             case "$SCHEDULE_CRON" in
-              "50 6 * * 1-5")
+              "55 6 * * 1-5")
                 MODE="morning"
                 ;;
               "0 11 * * 1-5")
@@ -103,14 +100,12 @@ jobs:
             morning)
               START_TOTAL=$MORNING_START
               END_TOTAL=$MORNING_END
-              echo "SABAH SEANSI: 09:50 - 14:00"
-              echo "Hedef taramalar: 09:50, 09:55, ... 13:55"
+              echo "SABAH SEANSI: 09:55 - 14:00"
               ;;
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
               echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:05"
-              echo "Hedef taramalar: 14:00, 14:05, ... 18:05"
               ;;
             *)
               echo "Geçersiz seans: $MODE"
@@ -125,17 +120,21 @@ jobs:
             echo $((10#$hour * 60 + 10#$minute))
           }
 
+          # Tetikleme erken geldiyse seans başlangıcını bekle.
           while [ "$(get_now_total)" -lt "$START_TOTAL" ]; do
             echo "Seans başlangıcı bekleniyor: $(date '+%H:%M:%S')"
-            sleep 15
+            sleep 5
           done
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          SCAN_FAILURES=0
+          LAST_SLOT=""
+
           kayitlari_kaydet() {
             if [ ! -f gonderilen_hisseler.txt ]; then
-              echo "Gönderilen hisse kayıt dosyası bulunamadı."
+              echo "Gönderilen hisse kayıt dosyası henüz yok."
               return 0
             fi
 
@@ -144,30 +143,22 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m "Günlük gönderilen hisseleri güncelle"
               git push
-              echo "Günlük hisse kayıtları GitHub'a kaydedildi."
+              echo "Hisse kayıtları GitHub'a kaydedildi."
             else
-              echo "Yeni kayıt yok."
+              echo "Kaydedilecek yeni kayıt yok."
             fi
           }
-
-          SCAN_FAILURES=0
-          LAST_SLOT=""
 
           while true; do
             NOW_TOTAL=$(get_now_total)
 
-            if [ "$MODE" = "morning" ] &&
-               [ "$NOW_TOTAL" -ge "$MORNING_END" ]; then
-              echo "Sabah seansı sona erdi."
+            if [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
+              echo "Seans bitiş saatine ulaşıldı."
               break
             fi
 
-            if [ "$MODE" = "afternoon" ] &&
-               [ "$NOW_TOTAL" -gt "$AFTERNOON_END" ]; then
-              echo "Öğleden sonra seansı sona erdi."
-              break
-            fi
-
+            # Sonraki 5 dakikalık sınırı beklemeden aynı
+            # zaman diliminde ikinci kez tarama yapma.
             SLOT_MINUTE=$((10#$(date +%M)))
             SLOT_MINUTE=$((SLOT_MINUTE / 5 * 5))
             SLOT="$(date '+%Y-%m-%d %H'):$(printf '%02d' "$SLOT_MINUTE")"
@@ -200,6 +191,7 @@ jobs:
             SCAN_END=$(date +%s)
             echo "Tarama süresi: $((SCAN_END - SCAN_START)) saniye"
 
+            # Sonraki 5 dakikalık sınırda tarama yap.
             CURRENT_EPOCH=$(date +%s)
             NEXT_EPOCH=$(( (CURRENT_EPOCH / 300 + 1) * 300 ))
             WAIT_SECONDS=$((NEXT_EPOCH - CURRENT_EPOCH))
