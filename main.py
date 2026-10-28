@@ -1,3 +1,23 @@
+            ] >= 0
+            else "🔴"
+        )
+
+        hafta_isaret = (
+            "🟢"
+            if sonuc[
+                "weekly_change"
+            ] >= 0
+            else "🔴"
+        )
+
+        adx_deger = (
+            sonuc["adx14"]
+        )
+
+        adx_isaret = (
+            adx_gosterge(
+                adx_deger
+            )
         )
 
         fiyat = (
@@ -87,12 +107,14 @@
 
         if telegram_gonder(mesaj):
             basariyla_gonderilenler.add(symbol)
-            # Her başarılı mesajdan hemen sonra yerel kaydı güncelle.
-            # İş akışı adımı tamamlandığında YAML bu dosyayı GitHub'a aktarır.
+
+            # Her başarılı Telegram gönderiminden hemen sonra kaydet.
+            # Böylece sonraki bir hata olursa gönderilmiş hisse kaydı kaybolmaz.
             gonderilenleri_kaydet({symbol})
         else:
             print(
-                f"{symbol}: Telegram gönderimi başarısız; hisse gönderildi olarak kaydedilmedi."
+                f"{symbol}: Telegram gönderimi başarısız; "
+                "hisse gönderildi olarak kaydedilmedi."
             )
 
     if not basariyla_gonderilenler:
