@@ -1,22 +1,20 @@
+
 name: Ticaret Botu Çalışır
 
 on:
   schedule:
-    # Türkiye saati 09:55 (UTC 06:55)
-    - cron: '55 6 * * 1-5'
-    # Türkiye saati 14:00 (UTC 11:00)
-    - cron: '0 11 * * 1-5'
-
+    - cron: "55 6 * * 1-5"
+    - cron: "0 11 * * 1-5"
   workflow_dispatch:
     inputs:
       session_mode:
-        description: 'Manuel çalıştırma modu'
+        description: "Çalıştırılacak seans"
         required: true
-        default: morning
         type: choice
         options:
           - morning
           - afternoon
+        default: morning
 
 permissions:
   contents: write
@@ -26,50 +24,65 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  bot:
+  ticaret-botu:
     runs-on: ubuntu-latest
     timeout-minutes: 270
 
     env:
+      TZ: Europe/Istanbul
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      TZ: Europe/Istanbul
+      EVENT_NAME: ${{ github.event_name }}
+      SCHEDULE_CRON: ${{ github.event.schedule }}
+      MANUAL_MODE: ${{ inputs.session_mode }}
 
     steps:
-      - name: Repoyu al
+      - name: Depoyu indir
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Python 3.11 kurulumu
+      - name: Python 3.11 kur
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Gereksinimleri yükle
+      - name: Bağımlılıkları yükle
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "HATA: requirements.txt bulunamadı."
+            exit 1
+          fi
 
       - name: Botu seans boyunca 5 dakikada bir çalıştır
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          SCHEDULE_CRON: ${{ github.event.schedule }}
-          MANUAL_MODE: ${{ inputs.session_mode || 'morning' }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           export TZ="Europe/Istanbul"
 
           MORNING_START=595
           MORNING_END=840
           AFTERNOON_START=840
-          AFTERNOON_END=1085
+          AFTERNOON_END=1080
+          INTERVAL=300
+          FAILED_SCANS=0
+
+          get_minute_of_day() {
+            local hour minute
+            hour=$((10#$(date +%H)))
+            minute=$((10#$(date +%M)))
+            echo $((hour * 60 + minute))
+          }
 
           echo "=========================================="
           echo "5 DAKIKALIK TICARET BOTU"
           echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "Tetikleme: $EVENT_NAME"
+          echo "Tetikleme: ${EVENT_NAME}"
           echo "Cron: ${SCHEDULE_CRON:-manuel}"
           echo "=========================================="
 
@@ -79,21 +92,24 @@ jobs:
             exit 0
           fi
 
+          NOW=$(get_minute_of_day)
+
           if [ "$EVENT_NAME" = "schedule" ]; then
-            case "$SCHEDULE_CRON" in
-              "55 6 * * 1-5")
-                MODE="morning"
-                ;;
-              "0 11 * * 1-5")
-                MODE="afternoon"
-                ;;
-              *)
-                echo "Tanınmayan zamanlama: $SCHEDULE_CRON"
-                exit 1
-                ;;
-            esac
+            # Gecikmiş tetiklemelerde cron adına değil,
+            # Türkiye'deki GERÇEK saate göre seansı seç.
+            if [ "$NOW" -ge "$MORNING_START" ] &&
+               [ "$NOW" -lt "$MORNING_END" ]; then
+              MODE="morning"
+            elif [ "$NOW" -ge "$AFTERNOON_START" ] &&
+                 [ "$NOW" -lt "$AFTERNOON_END" ]; then
+              MODE="afternoon"
+            else
+              echo "Şu an aktif seans yok."
+              echo "Türkiye saati: $(date '+%H:%M:%S')"
+              exit 0
+            fi
           else
-            MODE="$MANUAL_MODE"
+            MODE="${MANUAL_MODE:-morning}"
           fi
 
           case "$MODE" in
@@ -105,123 +121,88 @@ jobs:
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
-              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:05"
+              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:00"
               ;;
             *)
-              echo "Geçersiz seans: $MODE"
+              echo "HATA: Tanınmayan seans: $MODE"
               exit 1
               ;;
           esac
 
-          get_now_total() {
-            local hour minute
-            hour=$(date +%H)
-            minute=$(date +%M)
-            echo $((10#$hour * 60 + 10#$minute))
-          }
+          NOW=$(get_minute_of_day)
 
-          # Tetikleme erken geldiyse seans başlangıcını bekle.
-          while [ "$(get_now_total)" -lt "$START_TOTAL" ]; do
-            echo "Seans başlangıcı bekleniyor: $(date '+%H:%M:%S')"
-            sleep 5
-          done
+          if [ "$NOW" -lt "$START_TOTAL" ] ||
+             [ "$NOW" -ge "$END_TOTAL" ]; then
+            echo "Seçilen seans şu an aktif değil."
+            echo "Başlangıç: $START_TOTAL, bitiş: $END_TOTAL"
+            exit 0
+          fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          SCAN_FAILURES=0
-          LAST_SLOT=""
-
-          kayitlari_kaydet() {
-            if [ ! -f gonderilen_hisseler.txt ]; then
-              echo "Gönderilen hisse kayıt dosyası henüz yok."
-              return 0
-            fi
-
-            git add gonderilen_hisseler.txt
-
-            if ! git diff --cached --quiet; then
-              git commit -m "Günlük gönderilen hisseleri güncelle"
-              git push
-              echo "Hisse kayıtları GitHub'a kaydedildi."
-            else
-              echo "Kaydedilecek yeni kayıt yok."
-            fi
-          }
+          echo "Seçilen seans: $MODE"
+          echo "İlk tarama zamanı: $(date '+%H:%M:%S')"
 
           while true; do
-            NOW_TOTAL=$(get_now_total)
+            NOW=$(get_minute_of_day)
 
-            if [ "$NOW_TOTAL" -ge "$END_TOTAL" ]; then
+            if [ "$NOW" -ge "$END_TOTAL" ]; then
               echo "Seans bitiş saatine ulaşıldı."
               break
             fi
 
-            # Sonraki 5 dakikalık sınırı beklemeden aynı
-            # zaman diliminde ikinci kez tarama yapma.
-            SLOT_MINUTE=$((10#$(date +%M)))
-            SLOT_MINUTE=$((SLOT_MINUTE / 5 * 5))
-            SLOT="$(date '+%Y-%m-%d %H'):$(printf '%02d' "$SLOT_MINUTE")"
+            echo "------------------------------------------"
+            echo "Tarama başlıyor: $(date '+%Y-%m-%d %H:%M:%S')"
 
-            if [ "$SLOT" = "$LAST_SLOT" ]; then
-              sleep 2
-              continue
-            fi
-
-            LAST_SLOT="$SLOT"
-
-            echo ""
-            echo "=========================================="
-            echo "Tarama başlangıcı: $(date '+%Y-%m-%d %H:%M:%S')"
-            echo "Seans: $MODE"
-            echo "=========================================="
-
-            SCAN_START=$(date +%s)
-
-            if python main.py; then
-              echo "Tarama başarıyla tamamlandı."
+            if python -u main.py; then
+              echo "Tarama tamamlandı."
             else
               SCAN_EXIT=$?
-              SCAN_FAILURES=$((SCAN_FAILURES + 1))
-              echo "UYARI: main.py hata kodu $SCAN_EXIT ile sonlandı."
+              FAILED_SCANS=$((FAILED_SCANS + 1))
+              echo "UYARI: Tarama başarısız. Kod: $SCAN_EXIT"
+              echo "Toplam başarısız tarama: $FAILED_SCANS"
             fi
 
-            kayitlari_kaydet
+            NOW=$(get_minute_of_day)
 
-            SCAN_END=$(date +%s)
-            echo "Tarama süresi: $((SCAN_END - SCAN_START)) saniye"
+            if [ "$NOW" -ge "$END_TOTAL" ]; then
+              echo "Seans bitti."
+              break
+            fi
 
-            # Sonraki 5 dakikalık sınırda tarama yap.
-            CURRENT_EPOCH=$(date +%s)
-            NEXT_EPOCH=$(( (CURRENT_EPOCH / 300 + 1) * 300 ))
-            WAIT_SECONDS=$((NEXT_EPOCH - CURRENT_EPOCH))
+            # Sonraki 5 dakikalık saat dilimine kadar bekle.
+            CURRENT_SECONDS=$((10#$(date +%S)))
+            REMAINDER=$((NOW % 5))
+            WAIT_SECONDS=$(( (5 - REMAINDER) % 5 * 60
+                            - CURRENT_SECONDS ))
 
-            echo "Sonraki taramaya kadar $WAIT_SECONDS saniye beklenecek."
+            if [ "$WAIT_SECONDS" -le 0 ]; then
+              WAIT_SECONDS=$((WAIT_SECONDS + INTERVAL))
+            fi
+
+            echo "Sonraki taramaya ${WAIT_SECONDS} saniye kaldı."
             sleep "$WAIT_SECONDS"
           done
 
           echo "=========================================="
           echo "OTURUM TAMAMLANDI"
-          echo "Başarısız tarama sayısı: $SCAN_FAILURES"
+          echo "Başarısız tarama sayısı: $FAILED_SCANS"
+          echo "Bitiş: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "=========================================="
 
-      - name: Son kayıtları güvenceye al
+      - name: Hisse kayıtlarını kaydet
         if: always()
         shell: bash
         run: |
-          if [ ! -f gonderilen_hisseler.txt ]; then
-            echo "Gönderilen hisse dosyası bulunamadı."
-            exit 0
-          fi
+          set -euo pipefail
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add gonderilen_hisseler.txt
+          git add -f gonderilen_hisseler.txt 2>/dev/null || true
 
-          if git diff --cached --quiet; then
-            echo "Kaydedilecek yeni kayıt yok."
-          else
-            git commit -m "Günlük gönderilen hisseleri güncelle"
+          if ! git diff --cached --quiet; then
+            git commit -m "Hisse gönderim kayıtlarını güncelle"
             git push
+          else
+            echo "Kaydedilecek yeni hisse kaydı yok."
           fi
