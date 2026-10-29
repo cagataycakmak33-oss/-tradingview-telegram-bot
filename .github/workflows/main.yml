@@ -1,10 +1,13 @@
-
 name: Ticaret Botu Çalışır
 
 on:
   schedule:
+    # Türkiye saati 09:55
     - cron: "55 6 * * 1-5"
+
+    # Türkiye saati 14:00
     - cron: "0 11 * * 1-5"
+
   workflow_dispatch:
     inputs:
       session_mode:
@@ -52,6 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
+
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
@@ -59,7 +63,7 @@ jobs:
             exit 1
           fi
 
-      - name: Botu seans boyunca 5 dakikada bir çalıştır
+      - name: Seans boyunca 5 dakikada bir tarama yap
         shell: bash
         run: |
           set -uo pipefail
@@ -74,40 +78,39 @@ jobs:
 
           get_minute_of_day() {
             local hour minute
-            hour=$((10#$(date +%H)))
-            minute=$((10#$(date +%M)))
-            echo $((hour * 60 + minute))
+            hour=$(date +%H)
+            minute=$(date +%M)
+            echo $((10#$hour * 60 + 10#$minute))
           }
 
           echo "=========================================="
-          echo "5 DAKIKALIK TICARET BOTU"
+          echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "Tetikleme: ${EVENT_NAME}"
           echo "Cron: ${SCHEDULE_CRON:-manuel}"
           echo "=========================================="
 
           DAY_OF_WEEK=$(date +%u)
+
           if [ "$DAY_OF_WEEK" -gt 5 ]; then
             echo "Hafta sonu. Bot çalıştırılmayacak."
             exit 0
           fi
 
-          NOW=$(get_minute_of_day)
-
+          # Seansı cron tetiklemesine göre belirle.
           if [ "$EVENT_NAME" = "schedule" ]; then
-            # Gecikmiş tetiklemelerde cron adına değil,
-            # Türkiye'deki GERÇEK saate göre seansı seç.
-            if [ "$NOW" -ge "$MORNING_START" ] &&
-               [ "$NOW" -lt "$MORNING_END" ]; then
-              MODE="morning"
-            elif [ "$NOW" -ge "$AFTERNOON_START" ] &&
-                 [ "$NOW" -lt "$AFTERNOON_END" ]; then
-              MODE="afternoon"
-            else
-              echo "Şu an aktif seans yok."
-              echo "Türkiye saati: $(date '+%H:%M:%S')"
-              exit 0
-            fi
+            case "$SCHEDULE_CRON" in
+              "55 6 * * 1-5")
+                MODE="morning"
+                ;;
+              "0 11 * * 1-5")
+                MODE="afternoon"
+                ;;
+              *)
+                echo "Tanınmayan cron tetiklemesi: $SCHEDULE_CRON"
+                exit 1
+                ;;
+            esac
           else
             MODE="${MANUAL_MODE:-morning}"
           fi
@@ -116,12 +119,14 @@ jobs:
             morning)
               START_TOTAL=$MORNING_START
               END_TOTAL=$MORNING_END
-              echo "SABAH SEANSI: 09:55 - 14:00"
+              echo "SABAH TARAMA MODU"
+              echo "09:55 - 14:00"
               ;;
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
-              echo "ÖĞLEDEN SONRA SEANSI: 14:00 - 18:00"
+              echo "ÖĞLEDEN SONRA TARAMA MODU"
+              echo "14:00 - 18:00"
               ;;
             *)
               echo "HATA: Tanınmayan seans: $MODE"
@@ -129,18 +134,27 @@ jobs:
               ;;
           esac
 
-          NOW=$(get_minute_of_day)
+          # Seans başlangıcından önce tetiklenirse bekle.
+          while true; do
+            NOW=$(get_minute_of_day)
 
-          if [ "$NOW" -lt "$START_TOTAL" ] ||
-             [ "$NOW" -ge "$END_TOTAL" ]; then
-            echo "Seçilen seans şu an aktif değil."
-            echo "Başlangıç: $START_TOTAL, bitiş: $END_TOTAL"
-            exit 0
-          fi
+            if [ "$NOW" -ge "$END_TOTAL" ]; then
+              echo "Seans bitiş saati geçmiş. Workflow kapatılıyor."
+              exit 0
+            fi
 
-          echo "Seçilen seans: $MODE"
-          echo "İlk tarama zamanı: $(date '+%H:%M:%S')"
+            if [ "$NOW" -ge "$START_TOTAL" ]; then
+              break
+            fi
 
+            echo "Seans başlangıcı bekleniyor..."
+            echo "Türkiye saati: $(date '+%H:%M:%S')"
+            sleep 30
+          done
+
+          echo "İlk tarama: $(date '+%Y-%m-%d %H:%M:%S')"
+
+          # Seans boyunca tarama döngüsü.
           while true; do
             NOW=$(get_minute_of_day)
 
@@ -153,37 +167,39 @@ jobs:
             echo "Tarama başlıyor: $(date '+%Y-%m-%d %H:%M:%S')"
 
             if python -u main.py; then
-              echo "Tarama tamamlandı."
+              echo "Tarama başarıyla tamamlandı."
             else
               SCAN_EXIT=$?
               FAILED_SCANS=$((FAILED_SCANS + 1))
               echo "UYARI: Tarama başarısız. Kod: $SCAN_EXIT"
-              echo "Toplam başarısız tarama: $FAILED_SCANS"
+              echo "Başarısız tarama sayısı: $FAILED_SCANS"
             fi
 
             NOW=$(get_minute_of_day)
 
             if [ "$NOW" -ge "$END_TOTAL" ]; then
-              echo "Seans bitti."
+              echo "Seans bitti. Yeni tarama yapılmayacak."
               break
             fi
 
-            # Sonraki 5 dakikalık saat dilimine kadar bekle.
-            CURRENT_SECONDS=$((10#$(date +%S)))
+            # Sonraki 5 dakikalık zaman dilimine kadar bekle.
+            CURRENT_SECONDS=$(date +%S)
+            CURRENT_SECONDS=$((10#$CURRENT_SECONDS))
             REMAINDER=$((NOW % 5))
-            WAIT_SECONDS=$(( (5 - REMAINDER) % 5 * 60
-                            - CURRENT_SECONDS ))
+
+            WAIT_SECONDS=$(( (5 - REMAINDER) % 5 * 60 - CURRENT_SECONDS ))
 
             if [ "$WAIT_SECONDS" -le 0 ]; then
               WAIT_SECONDS=$((WAIT_SECONDS + INTERVAL))
             fi
 
-            echo "Sonraki taramaya ${WAIT_SECONDS} saniye kaldı."
+            echo "Bir sonraki tarama için ${WAIT_SECONDS} saniye bekleniyor."
             sleep "$WAIT_SECONDS"
           done
 
           echo "=========================================="
-          echo "OTURUM TAMAMLANDI"
+          echo "TARAMA DÖNGÜSÜ TAMAMLANDI"
+          echo "Seans: $MODE"
           echo "Başarısız tarama sayısı: $FAILED_SCANS"
           echo "Bitiş: $(date '+%Y-%m-%d %H:%M:%S')"
           echo "=========================================="
