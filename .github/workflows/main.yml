@@ -183,15 +183,8 @@ jobs:
             fi
 
             # Sonraki 5 dakikalık zaman dilimine kadar bekle.
-            CURRENT_SECONDS=$(date +%S)
-            CURRENT_SECONDS=$((10#$CURRENT_SECONDS))
-            REMAINDER=$((NOW % 5))
-
-            WAIT_SECONDS=$(( (5 - REMAINDER) % 5 * 60 - CURRENT_SECONDS ))
-
-            if [ "$WAIT_SECONDS" -le 0 ]; then
-              WAIT_SECONDS=$((WAIT_SECONDS + INTERVAL))
-            fi
+            CURRENT_EPOCH=$(date +%s)
+            WAIT_SECONDS=$((INTERVAL - CURRENT_EPOCH % INTERVAL))
 
             echo "Bir sonraki tarama için ${WAIT_SECONDS} saniye bekleniyor."
             sleep "$WAIT_SECONDS"
