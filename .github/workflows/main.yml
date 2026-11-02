@@ -86,6 +86,7 @@ jobs:
           echo "=========================================="
           echo "5 DAKIKALIK TICARET BOTU BASLIYOR"
           echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "UTC saati: $(date -u '+%Y-%m-%d %H:%M:%S')"
           echo "Tetikleme: ${EVENT_NAME}"
           echo "Cron: ${SCHEDULE_CRON:-manuel}"
           echo "=========================================="
@@ -139,7 +140,8 @@ jobs:
             NOW=$(get_minute_of_day)
 
             if [ "$NOW" -ge "$END_TOTAL" ]; then
-              echo "Seans bitiş saati geçmiş. Workflow kapatılıyor."
+              echo "Seans bitiş saati geçmiş."
+              echo "Workflow kapatılıyor."
               exit 0
             fi
 
@@ -195,6 +197,7 @@ jobs:
           echo "Seans: $MODE"
           echo "Başarısız tarama sayısı: $FAILED_SCANS"
           echo "Bitiş: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "UTC bitiş: $(date -u '+%Y-%m-%d %H:%M:%S')"
           echo "=========================================="
 
       - name: Hisse kayıtlarını kaydet
@@ -215,3 +218,4 @@ jobs:
           else
             echo "Kaydedilecek yeni hisse kaydı yok."
           fi
+```
