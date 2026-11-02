@@ -54,6 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           python -m pip install --upgrade pip
 
           if [ -f requirements.txt ]; then
@@ -73,6 +74,7 @@ jobs:
           MORNING_END=840
           AFTERNOON_START=840
           AFTERNOON_END=1080
+
           INTERVAL=300
           FAILED_SCANS=0
 
@@ -98,7 +100,7 @@ jobs:
             exit 0
           fi
 
-          # Seansı cron tetiklemesine göre belirle.
+          # Seans belirleme
           if [ "$EVENT_NAME" = "schedule" ]; then
             case "$SCHEDULE_CRON" in
               "55 6 * * 1-5")
@@ -108,7 +110,7 @@ jobs:
                 MODE="afternoon"
                 ;;
               *)
-                echo "Tanınmayan cron tetiklemesi: $SCHEDULE_CRON"
+                echo "Tanınmayan cron: $SCHEDULE_CRON"
                 exit 1
                 ;;
             esac
@@ -116,16 +118,19 @@ jobs:
             MODE="${MANUAL_MODE:-morning}"
           fi
 
+          # Seans saatlerini belirle
           case "$MODE" in
             morning)
               START_TOTAL=$MORNING_START
               END_TOTAL=$MORNING_END
+
               echo "SABAH TARAMA MODU"
               echo "09:55 - 14:00"
               ;;
             afternoon)
               START_TOTAL=$AFTERNOON_START
               END_TOTAL=$AFTERNOON_END
+
               echo "ÖĞLEDEN SONRA TARAMA MODU"
               echo "14:00 - 18:00"
               ;;
@@ -135,7 +140,7 @@ jobs:
               ;;
           esac
 
-          # Seans başlangıcından önce tetiklenirse bekle.
+          # Seans başlangıcını bekle
           while true; do
             NOW=$(get_minute_of_day)
 
@@ -151,13 +156,15 @@ jobs:
 
             echo "Seans başlangıcı bekleniyor..."
             echo "Türkiye saati: $(date '+%H:%M:%S')"
+
             sleep 30
           done
 
-          echo "İlk tarama: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "İlk tarama zamanı: $(date '+%Y-%m-%d %H:%M:%S')"
 
-          # Seans boyunca tarama döngüsü.
+          # Beş dakikalık tarama döngüsü
           while true; do
+
             NOW=$(get_minute_of_day)
 
             if [ "$NOW" -ge "$END_TOTAL" ]; then
@@ -172,8 +179,11 @@ jobs:
               echo "Tarama başarıyla tamamlandı."
             else
               SCAN_EXIT=$?
+
               FAILED_SCANS=$((FAILED_SCANS + 1))
-              echo "UYARI: Tarama başarısız. Kod: $SCAN_EXIT"
+
+              echo "UYARI: Tarama başarısız."
+              echo "Hata kodu: $SCAN_EXIT"
               echo "Başarısız tarama sayısı: $FAILED_SCANS"
             fi
 
@@ -184,20 +194,23 @@ jobs:
               break
             fi
 
-            # Sonraki 5 dakikalık zaman dilimine kadar bekle.
+            # Sonraki 5 dakikalık zaman dilimine kadar bekle
             CURRENT_EPOCH=$(date +%s)
+
             WAIT_SECONDS=$((INTERVAL - CURRENT_EPOCH % INTERVAL))
 
             echo "Bir sonraki tarama için ${WAIT_SECONDS} saniye bekleniyor."
+
             sleep "$WAIT_SECONDS"
+
           done
 
           echo "=========================================="
           echo "TARAMA DÖNGÜSÜ TAMAMLANDI"
           echo "Seans: $MODE"
           echo "Başarısız tarama sayısı: $FAILED_SCANS"
-          echo "Bitiş: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "UTC bitiş: $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "Türkiye saati: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "UTC saati: $(date -u '+%Y-%m-%d %H:%M:%S')"
           echo "=========================================="
 
       - name: Hisse kayıtlarını kaydet
